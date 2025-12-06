@@ -1,0 +1,21 @@
+{
+  "name": "bun-inspector-protocol",
+  "version": "0.0.2",
+  "scripts": {
+    "build": "bun build --target=node --outfile=index.js --minify-syntax ./index.ts --external=ws"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "type": "module",
+  "files": [
+    "index.js",
+    "index.ts",
+    "index.d.ts",
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}

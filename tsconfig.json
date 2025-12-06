@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "moduleDetection": "force",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@components": ["./src/client/components"],
+      "@components/*": ["./src/client/components/*"],
+      "@panels": ["./src/client/components/panels"],
+      "@panels/*": ["./src/client/components/panels/*"],
+      "@layout": ["./src/client/components/layout"],
+      "@layout/*": ["./src/client/components/layout/*"],
+      "@ui": ["./src/client/components/ui"],
+      "@ui/*": ["./src/client/components/ui/*"]
+    },
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "build.ts",
+    "plugins/*.ts",
+    "uno.config.ts",
+    "tsdown.config.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "packages",
+    "reference"
+  ]
+}

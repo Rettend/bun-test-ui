@@ -1,0 +1,9 @@
+[serve.static]
+plugins = [
+  "./plugins/solid-bun-plugin.ts",
+  "./plugins/unocss-bun-plugin.ts",
+]
+
+[test]
+root = "./tests"
+

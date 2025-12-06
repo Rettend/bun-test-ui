@@ -1,0 +1,74 @@
+{
+  "name": "bun-test-ui",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "workspaces": [
+    ".",
+    "packages/*"
+  ],
+  "version": "0.0.0",
+  "packageManager": "bun@1.3.3",
+  "description": "Bun Test UI - A visual test runner for Bun",
+  "author": "Rettend <hi@rettend.me>",
+  "license": "MIT",
+  "homepage": "https://github.com/rettend/bun-test-ui",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rettend/bun-test-ui"
+  },
+  "keywords": [
+    "bun",
+    "test",
+    "ui",
+    "vitest",
+    "test-runner"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "bun-test-ui": "./src/cli.ts"
+  },
+  "files": [
+    "README.md",
+    "dist",
+    "plugins",
+    "src"
+  ],
+  "scripts": {
+    "build": "bun run build.ts",
+    "lint": "eslint . --fix",
+    "check": "tsgo --noEmit -p tsconfig.json",
+    "update": "taze",
+    "dev": "bun --hot src/server/index.ts",
+    "start": "bun src/cli.ts",
+    "release": "bumpp && bun publish"
+  },
+  "dependencies": {
+    "@unocss/config": "^66.5.10",
+    "@unocss/core": "^66.5.10",
+    "bun-inspector-protocol": "workspace:*",
+    "solid-js": "^1.9.10"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^6.4.2",
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20251206.1",
+    "@unocss/eslint-plugin": "^66.5.10",
+    "bumpp": "^10.3.2",
+    "bun-plugin-solid": "^1.0.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-format": "^1.0.2",
+    "eslint-plugin-solid": "^0.14.5",
+    "solid-refresh": "^0.7.5",
+    "taze": "^19.9.2",
+    "unocss": "^66.5.10"
+  }
+}
