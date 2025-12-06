@@ -6,7 +6,7 @@ import { serve, spawn } from 'bun'
 import { TCPSocketSignal } from './signal'
 import { getFreePort } from './utils'
 
-const DIST_DIR = join(process.cwd(), 'dist', 'client')
+const DIST_DIR = join(import.meta.dir, '..', '..', 'dist', 'client')
 const CLIENT_DIR = join(process.cwd(), 'src', 'client')
 const isDev = process.env.NODE_ENV !== 'production' || process.env.BUN_HOT === '1'
 
