@@ -5,9 +5,9 @@
     "": {
       "name": "bun-test-ui",
       "dependencies": {
+        "@rttnd/bun-inspector-protocol": "^0.0.2",
         "@unocss/config": "^66.5.10",
         "@unocss/core": "^66.5.10",
-        "bun-inspector-protocol": "workspace:*",
         "solid-js": "^1.9.10",
       },
       "devDependencies": {
@@ -34,7 +34,7 @@
       },
     },
     "packages/bun-inspector-protocol": {
-      "name": "bun-inspector-protocol",
+      "name": "@rttnd/bun-inspector-protocol",
       "version": "0.0.2",
       "dependencies": {
         "ws": "^8.18.3",
@@ -266,6 +266,8 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.53.3", "", { "os": "win32", "cpu": "x64" }, "sha512-UhTd8u31dXadv0MopwGgNOBpUVROFKWVQgAg5N1ESyCz8AuBcMqm4AuTjrwgQKGDfoFuz02EuMRHQIw/frmYKQ=="],
 
+    "@rttnd/bun-inspector-protocol": ["@rttnd/bun-inspector-protocol@workspace:packages/bun-inspector-protocol"],
+
     "@sindresorhus/base62": ["@sindresorhus/base62@1.0.0", "", {}, "sha512-TeheYy0ILzBEI/CO55CP6zJCSdSWeRtGnHy8U8dWSUH4I68iqTsy7HkMktR4xakThc9jotkPQUXT4ITdbV7cHA=="],
 
     "@stylistic/eslint-plugin": ["@stylistic/eslint-plugin@5.6.1", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.9.0", "@typescript-eslint/types": "^8.47.0", "eslint-visitor-keys": "^4.2.1", "espree": "^10.4.0", "estraverse": "^5.3.0", "picomatch": "^4.0.3" }, "peerDependencies": { "eslint": ">=9.0.0" } }, "sha512-JCs+MqoXfXrRPGbGmho/zGS/jMcn3ieKl/A8YImqib76C8kjgZwq5uUFzc30lJkMvcchuRn6/v8IApLxli3Jyw=="],
@@ -425,8 +427,6 @@
     "bumpp": ["bumpp@10.3.2", "", { "dependencies": { "ansis": "^4.2.0", "args-tokenizer": "^0.3.0", "c12": "^3.3.2", "cac": "^6.7.14", "escalade": "^3.2.0", "jsonc-parser": "^3.3.1", "package-manager-detector": "^1.5.0", "semver": "^7.7.3", "tinyexec": "^1.0.2", "tinyglobby": "^0.2.15", "yaml": "^2.8.1" }, "bin": { "bumpp": "bin/bumpp.mjs" } }, "sha512-yUUkVx5zpTywLNX97MlrqtpanI7eMMwFwLntWR2EBVDw3/Pm3aRIzCoDEGHATLIiHK9PuJC7xWI4XNWqXItSPg=="],
 
     "bun-debug-adapter-protocol": ["bun-debug-adapter-protocol@workspace:packages/bun-debug-adapter-protocol"],
-
-    "bun-inspector-protocol": ["bun-inspector-protocol@workspace:packages/bun-inspector-protocol"],
 
     "bun-plugin-solid": ["bun-plugin-solid@1.0.0", "", { "dependencies": { "@babel/core": ">=7.0.0", "@babel/preset-typescript": ">=7.0.0", "babel-preset-solid": ">=1.8.0" } }, "sha512-H4ZcW4afCLYLDtBsog5cvCfQo8f5E7SD8AeT1woVmIKBOMguy/ml9f1jz9UlikN/i+VK1bS6GII46ZR2OdhbBQ=="],
 

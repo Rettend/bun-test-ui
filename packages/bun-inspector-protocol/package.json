@@ -1,5 +1,5 @@
 {
-  "name": "bun-inspector-protocol",
+  "name": "@rttnd/bun-inspector-protocol",
   "version": "0.0.2",
   "scripts": {
     "build": "bun build --target=node --outfile=index.js --minify-syntax ./index.ts --external=ws"

@@ -1,8 +1,8 @@
 import type { ServerWebSocket, Subprocess } from 'bun'
 import { join } from 'node:path'
 import process from 'node:process'
+import { WebSocketInspector } from '@rttnd/bun-inspector-protocol'
 import { serve, spawn } from 'bun'
-import { WebSocketInspector } from 'bun-inspector-protocol'
 import { TCPSocketSignal } from './signal'
 import { getFreePort } from './utils'
 
