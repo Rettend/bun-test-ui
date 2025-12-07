@@ -1,21 +1,21 @@
 import type { ConsoleEntry as ConsoleEntryType } from '@components/types'
 import type { Component } from 'solid-js'
 import { formatTimestamp, getStatusBadgeClass } from '@components/utils'
-import { Show } from 'solid-js'
+import { createMemo, Show } from 'solid-js'
 
 export interface ConsoleEntryItemProps {
   entry: ConsoleEntryType
 }
 
 const ConsoleEntryItem: Component<ConsoleEntryItemProps> = (props) => {
-  const levelClass = () => {
+  const levelClass = createMemo(() => {
     const level = props.entry.level
     if (level === 'error')
       return getStatusBadgeClass('failed')
     if (level === 'warn' || level === 'warning')
       return getStatusBadgeClass('running')
     return getStatusBadgeClass('passed')
-  }
+  })
 
   return (
     <div class="text-sm px-5 py-3 flex gap-3">

@@ -26,7 +26,6 @@ async function openBrowser(url: string) {
 async function main() {
   const args = process.argv.slice(2)
 
-  // Parse CLI arguments
   let port = 51205
   let testPattern = ''
   let noOpen = false
@@ -47,8 +46,6 @@ async function main() {
     open: !noOpen,
   })
 
-  // Set environment variables for the server
-  // CLI always runs in production mode (uses pre-built assets)
   process.env.NODE_ENV = 'production'
   process.env.BUN_TEST_UI_PORT = String(config.port)
   process.env.BUN_TEST_UI_ROOT = config.testRoot
@@ -61,15 +58,12 @@ async function main() {
   if (config.testPattern)
     console.log(`   Pattern: ${config.testPattern}`)
 
-  // Import and start the server
   await import('./server/index.js')
 
   const url = `http://localhost:${config.port}`
 
-  if (config.open) {
-    // Small delay to ensure server is ready
-    setTimeout(() => openBrowser(url), 500)
-  }
+  if (config.open)
+    setTimeout(() => openBrowser(url), 500) // TODO: remove?
 }
 
 main().catch((error) => {

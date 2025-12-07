@@ -21,6 +21,11 @@ if (isDev) {
   devIndexHtml = (devIndexImport as any).default ?? devIndexImport
 }
 
+interface RunRequest {
+  files?: string[]
+  testNamePattern?: string
+}
+
 interface ServerState {
   signal: TCPSocketSignal | null
   process: Subprocess | null
@@ -41,7 +46,25 @@ function broadcast(msg: any) {
     client.send(str)
 }
 
-async function startTestRun() {
+function normalizeFilePath(path?: string): string | null {
+  if (!path)
+    return null
+  try {
+    if (path.startsWith('file://')) {
+      const parsed = new URL(path)
+      let pathname = decodeURIComponent(parsed.pathname)
+      if (pathname.startsWith('/') && pathname[2] === ':')
+        pathname = pathname.slice(1)
+      return pathname
+    }
+  }
+  catch {
+    // ignore malformed urls and fall back to original path
+  }
+  return path
+}
+
+async function startTestRun(request?: RunRequest) {
   console.warn('Starting test run...')
   if (state.process) {
     state.process.kill()
@@ -144,11 +167,21 @@ async function startTestRun() {
   console.warn(`Spawning bun test with BUN_INSPECT=${inspectorUrl}?wait=1 (notify ${state.signal.url})`)
 
   // Build the test command
+  const requestedFiles = Array.from(
+    new Set((request?.files ?? []).map(normalizeFilePath).filter(Boolean) as string[]),
+  )
+
   const testCmd = ['bun', 'test']
-  if (TEST_ROOT)
+  if (requestedFiles.length)
+    testCmd.push(...requestedFiles)
+  else if (TEST_ROOT)
     testCmd.push(TEST_ROOT)
-  if (TEST_PATTERN)
+
+  if (!requestedFiles.length && TEST_PATTERN)
     testCmd.push(TEST_PATTERN)
+
+  if (request?.testNamePattern)
+    testCmd.push('--test-name-pattern', request.testNamePattern)
 
   console.warn(`Spawning: ${testCmd.join(' ')}`)
 
@@ -235,8 +268,13 @@ const server = serve({
     message(ws, message) {
       try {
         const data = JSON.parse(String(message))
-        if (data.type === 'run')
-          startTestRun()
+        if (data.type === 'run') {
+          const files = Array.isArray(data.files) ? data.files : undefined
+          const testNamePattern = typeof data.testNamePattern === 'string' && data.testNamePattern.trim()
+            ? data.testNamePattern
+            : undefined
+          startTestRun({ files, testNamePattern })
+        }
       }
       catch (e) {
         console.error('Failed to parse message', e)

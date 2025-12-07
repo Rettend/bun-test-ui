@@ -2,7 +2,8 @@ import type { Component } from 'solid-js'
 import type { ConnectionStatus, ConsoleEntry, ConsolePayload, RunPhase, TestNode, TestStatus } from './components'
 import { createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
-import { ConsolePanel, Header, stringifyArg, SummaryBar, TestDetails, TestExplorer } from './components'
+import { ConsolePanel, Header, ProgressBar, SplitPane, stringifyArg, SummaryBar, TestDetails, TestExplorer } from './components'
+import { buildTestNamePattern, coerceElapsed, normalizeFilePath } from './utils/run'
 
 const App: Component = () => {
   const [tests, setTests] = createStore<Record<string, TestNode>>({})
@@ -17,6 +18,9 @@ const App: Component = () => {
   let consoleId = 0
   let runStartedAt = 0
   let activeTestId: string | null = null
+  const inspectorIdMap: Map<string, string> = new Map()
+  let isFilteredRun = false
+  const targetedTestIds: Set<string> = new Set()
 
   onMount(() => {
     connectWebSocket()
@@ -56,6 +60,20 @@ const App: Component = () => {
 
   const selectedTest = createMemo(() => (selectedId() ? tests[selectedId()!] : undefined))
 
+  interface RunOptions {
+    files?: string[]
+    testNamePattern?: string
+    /**
+     * When false, we keep the existing tree and only reset targeted tests.
+     * Defaults to true when no filters are provided.
+     */
+    resetState?: boolean
+    /**
+     * Leaf test ids we are about to run; used to reset status/duration/error.
+     */
+    targetIds?: string[]
+  }
+
   function connectWebSocket() {
     setConnection('connecting')
     ws = new WebSocket(`ws://${location.host}/ws`)
@@ -83,39 +101,48 @@ const App: Component = () => {
       case 'found': {
         ensureRunTimer()
         const { id, name, type, parentId, url, line } = msg.data
-        const nodeId = String(id)
-        const parent = parentId != null ? String(parentId) : undefined
-        const addAsRoot = !parent && !roots().includes(nodeId)
+        const inspectorId = String(id)
+        const inspectorParentId = parentId != null ? String(parentId) : undefined
 
-        setTests(produce((state) => {
-          if (!state[nodeId])
-            state[nodeId] = { id: nodeId, name, type, parentId: parent, url, line, status: 'idle', children: [] }
+        if (isFilteredRun) {
+          // During filtered runs, try to find existing node by path
+          const parentStableId = inspectorParentId ? inspectorIdMap.get(inspectorParentId) : undefined
+          const stableId = findExistingNodeId(name, type, url, parentStableId)
 
-          else
-            state[nodeId] = { ...state[nodeId], name, type, parentId: parent, url, line }
-
-          if (parent) {
-            if (!state[parent])
-              state[parent] = { id: parent, name: 'Group', type: 'describe', status: 'idle', children: [] }
-
-            if (!state[parent].children.includes(nodeId))
-              state[parent].children.push(nodeId)
+          if (stableId) {
+            // Map inspector ID to existing stable ID
+            inspectorIdMap.set(inspectorId, stableId)
+            // Update the existing node's metadata if needed
+            setTests(stableId as any, node => ({
+              ...node,
+              url: url ?? node.url,
+              line: line ?? node.line,
+            }))
           }
-        }))
-
-        if (addAsRoot)
-          setRoots(prev => (prev.includes(nodeId) ? prev : [...prev, nodeId]))
-        if (!selectedId())
-          setSelectedId(nodeId)
+          else {
+            // Node not found - this shouldn't happen in a well-formed filtered run
+            // but handle gracefully by creating a new node
+            inspectorIdMap.set(inspectorId, inspectorId)
+            createNewNode(inspectorId, name, type, url, line, parentStableId)
+          }
+        }
+        else {
+          // Full run: use inspector IDs as stable IDs
+          inspectorIdMap.set(inspectorId, inspectorId)
+          const parentNodeId = inspectorParentId
+          createNewNode(inspectorId, name, type, url, line, parentNodeId)
+        }
         break
       }
       case 'start': {
         ensureRunTimer()
         const { id } = msg.data
-        const nodeId = String(id)
-        activeTestId = nodeId
-        setTests(nodeId as any, test => ({
-          ...(test ?? { id: nodeId, name: `Test ${nodeId}`, type: 'test', status: 'idle', children: [] }),
+        const inspectorId = String(id)
+        const stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
+        activeTestId = stableId
+
+        setTests(stableId as any, test => ({
+          ...(test ?? { id: stableId, name: `Test ${stableId}`, type: 'test', status: 'idle', children: [] }),
           status: 'running' as TestStatus,
           startedAt: performance.now(),
         }))
@@ -124,7 +151,17 @@ const App: Component = () => {
       case 'end': {
         ensureRunTimer()
         const { id, status, elapsed, error } = msg.data
-        const nodeId = String(id)
+        const inspectorId = String(id)
+        const stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
+        const existingNode = tests[stableId]
+
+        if (isFilteredRun && existingNode?.type === 'describe')
+          break
+
+        const isSkipStatus = status === 'skip' || status === 'skipped_because_label'
+        if (isFilteredRun && isSkipStatus && !targetedTestIds.has(stableId))
+          break
+
         const mappedStatus: TestStatus = status === 'pass'
           ? 'passed'
           : status === 'fail'
@@ -135,21 +172,23 @@ const App: Component = () => {
                 ? 'todo'
                 : 'skipped'
 
-        setTests(nodeId as any, (test) => {
-          const duration = typeof elapsed === 'number'
-            ? elapsed
+        const elapsedNumber = coerceElapsed(elapsed)
+        setTests(stableId as any, (test) => {
+          // Prefer inspector elapsed when present and > 0; otherwise fallback to client timer
+          const duration = elapsedNumber && elapsedNumber > 0
+            ? elapsedNumber
             : test?.startedAt
               ? performance.now() - test.startedAt
               : undefined
           return {
-            ...(test ?? { id: nodeId, name: `Test ${nodeId}`, type: 'test', status: 'idle', children: [] }),
+            ...(test ?? { id: stableId, name: `Test ${stableId}`, type: 'test', status: 'idle', children: [] }),
             status: mappedStatus,
             duration,
             error: (error as any)?.message ?? test?.error,
           }
         })
 
-        if (activeTestId === nodeId)
+        if (activeTestId === stableId)
           activeTestId = null
         break
       }
@@ -172,17 +211,149 @@ const App: Component = () => {
     }
   }
 
-  function runTests() {
+  function createNewNode(nodeId: string, name: string, type: 'test' | 'describe', url?: string, line?: number, parentId?: string) {
+    const addAsRoot = !parentId && !roots().includes(nodeId)
+
+    setTests(produce((state) => {
+      if (!state[nodeId])
+        state[nodeId] = { id: nodeId, name, type, parentId, url, line, status: 'idle', children: [] }
+      else
+        state[nodeId] = { ...state[nodeId], name, type, parentId, url, line }
+
+      if (parentId) {
+        if (!state[parentId])
+          state[parentId] = { id: parentId, name: 'Group', type: 'describe', status: 'idle', children: [] }
+
+        if (!state[parentId].children.includes(nodeId))
+          state[parentId].children.push(nodeId)
+      }
+    }))
+
+    if (addAsRoot)
+      setRoots(prev => (prev.includes(nodeId) ? prev : [...prev, nodeId]))
+    if (!selectedId())
+      setSelectedId(nodeId)
+  }
+
+  function findExistingNodeId(name: string, type: string, url?: string, parentStableId?: string): string | undefined {
+    const normalizedUrl = normalizeFilePath(url)
+
+    // Search in the appropriate scope
+    const searchScope = parentStableId ? tests[parentStableId]?.children ?? [] : roots()
+
+    for (const candidateId of searchScope) {
+      const candidate = tests[candidateId]
+      if (!candidate)
+        continue
+
+      // Match by name and type
+      if (candidate.name === name && candidate.type === type) {
+        // For root-level nodes, also check file path
+        if (!parentStableId) {
+          const candidateUrl = normalizeFilePath(candidate.url)
+          if (candidateUrl === normalizedUrl)
+            return candidateId
+        }
+        else {
+          return candidateId
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  function buildTestPath(id: string): string[] | null {
+    const path: string[] = []
+    let current: TestNode | undefined = tests[id]
+    if (!current)
+      return null
+
+    while (current) {
+      path.unshift(current.name || 'Test')
+      if (!current.parentId)
+        break
+      current = tests[current.parentId]
+      if (!current)
+        break
+    }
+
+    return path
+  }
+
+  function collectLeafTests(rootId: string): Array<{ id: string, file?: string, path: string[] }> {
+    const root = tests[rootId]
+    if (!root)
+      return []
+
+    const queue = [root]
+    const leafTests: Array<{ id: string, file?: string, path: string[] }> = []
+
+    while (queue.length) {
+      const current = queue.pop()!
+      if (current.type === 'test') {
+        const path = buildTestPath(current.id) ?? [current.name]
+        leafTests.push({
+          id: current.id,
+          file: normalizeFilePath(current.url),
+          path,
+        })
+      }
+
+      for (const childId of current.children)
+        tests[childId] && queue.push(tests[childId]!)
+    }
+
+    return leafTests
+  }
+
+  function runTests(options?: RunOptions) {
     if (!ws || ws.readyState !== WebSocket.OPEN)
       return
-    setTests({})
-    setRoots([])
-    setSelectedId(null)
+
+    const hasFilter = Boolean(options?.files?.length || options?.testNamePattern)
+    const resetState = options?.resetState ?? !hasFilter
+    const targetIds = options?.targetIds ?? []
+
+    activeTestId = null
     setConsoleEntries([])
     setPhase('running')
     setRunDuration(0)
     runStartedAt = performance.now()
-    ws.send(JSON.stringify({ type: 'run' }))
+
+    // Clear inspector ID mapping and set run mode
+    inspectorIdMap.clear()
+    isFilteredRun = !resetState
+
+    // Track which tests we're targeting for this filtered run
+    targetedTestIds.clear()
+    for (const id of targetIds)
+      targetedTestIds.add(id)
+
+    if (resetState) {
+      setTests({})
+      setRoots([])
+      setSelectedId(null)
+    }
+    else if (targetIds.length) {
+      setTests(produce((state) => {
+        for (const id of targetIds) {
+          if (state[id]) {
+            state[id].status = 'idle'
+            state[id].duration = undefined
+            state[id].error = undefined
+          }
+        }
+      }))
+    }
+
+    const payload: any = { type: 'run' }
+    if (options?.files?.length)
+      payload.files = options.files
+    if (options?.testNamePattern)
+      payload.testNamePattern = options.testNamePattern
+
+    ws.send(JSON.stringify(payload))
   }
 
   function handleConsole(payload: ConsolePayload) {
@@ -210,6 +381,7 @@ const App: Component = () => {
 
   return (
     <div class="text-gray-400 font-sans bg-#14141b flex flex-col h-screen antialiased">
+      <ProgressBar summary={summary()} />
       <Header
         connection={connection()}
         phase={phase()}
@@ -218,20 +390,52 @@ const App: Component = () => {
 
       <SummaryBar summary={summary()} />
 
-      <div class="flex flex-1 overflow-hidden">
-        <TestExplorer
-          roots={roots()}
-          tests={tests}
-          selectedId={selectedId()}
-          onSelect={setSelectedId}
-          summary={summary()}
-        />
+      <SplitPane
+        initialWidth={256}
+        minWidth={180}
+        maxWidth={500}
+        storageKey="test-explorer-width"
+        left={(
+          <TestExplorer
+            roots={roots()}
+            tests={tests}
+            selectedId={selectedId()}
+            onSelect={setSelectedId}
+            onRunTest={(id) => {
+              const selection = collectLeafTests(id)
+              // If we don't have discovered leaf tests yet, fall back to a file-only run
+              if (selection.length === 0) {
+                const node = tests[id]
+                const file = normalizeFilePath(node?.url)
+                runTests({
+                  files: file ? [file] : undefined,
+                  resetState: false,
+                  targetIds: node ? [node.id] : [],
+                })
+                return
+              }
 
-        <main class="p-5 bg-#14141b flex-1 overflow-auto space-y-4">
-          <TestDetails test={selectedTest()} />
-          <ConsolePanel entries={consoleEntries()} />
-        </main>
-      </div>
+              const files = Array.from(new Set(selection.map(test => test.file).filter(Boolean))) as string[]
+              const pattern = buildTestNamePattern(selection.map(test => test.path))
+              const targetIds = selection.map(test => test.id)
+
+              runTests({
+                files: files.length ? files : undefined,
+                testNamePattern: pattern,
+                resetState: false,
+                targetIds,
+              })
+            }}
+            summary={summary()}
+          />
+        )}
+        right={(
+          <main class="p-5 bg-#14141b flex-1 overflow-auto space-y-4">
+            <TestDetails test={selectedTest()} />
+            <ConsolePanel entries={consoleEntries()} />
+          </main>
+        )}
+      />
     </div>
   )
 }

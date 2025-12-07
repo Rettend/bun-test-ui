@@ -17,4 +17,8 @@ describe('demo tests', () => {
   test('failing test', () => {
     expect(1 + 2).toBe(4)
   })
+
+  test('slow test', async () => {
+    await Bun.sleep(1000)
+  })
 })

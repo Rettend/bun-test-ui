@@ -37,7 +37,22 @@ export function getStatusBadgeClass(status: TestStatus): string {
 }
 
 export function formatDuration(value?: number): string {
-  return typeof value === 'number' ? `${value.toFixed(2)}ms` : '—'
+  if (typeof value !== 'number' || value <= 0)
+    return '—'
+
+  // Bun's test reporter sends elapsed in nanoseconds
+  // Convert to milliseconds (divide by 1,000,000)
+  let ms = value
+  if (value > 1_000_000) {
+    // Likely nanoseconds - convert to ms
+    ms = value / 1_000_000
+  }
+
+  if (ms < 1)
+    return '<1ms'
+  if (ms < 1000)
+    return `${ms.toFixed(0)}ms`
+  return `${(ms / 1000).toFixed(2)}s`
 }
 
 export function formatTimestamp(value: number): string {
