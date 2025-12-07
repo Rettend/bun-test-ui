@@ -11,7 +11,7 @@ const SummaryBar: Component<SummaryBarProps> = (props) => {
   return (
     <div class="text-sm px-5 border-b border-white/10 bg-#14141b flex gap-6 h-12 items-center">
       <div class="flex gap-2 items-center">
-        <div class="i-ph-check-circle-duotone text-lg text-emerald-400" />
+        <div class="i-ph:check-circle-duotone text-lg text-emerald-400" />
         <span class="text-gray-400 font-medium">PASS</span>
         <span class="text-gray-200 font-bold">{props.summary.passed}</span>
       </div>
@@ -19,7 +19,7 @@ const SummaryBar: Component<SummaryBarProps> = (props) => {
       <div class="bg-white/10 h-4 w-px" />
 
       <div class="flex gap-2 items-center">
-        <div class="i-ph-x-circle-duotone text-lg text-red-400" />
+        <div class="i-ph:x-circle-duotone text-lg text-red-400" />
         <span class="text-gray-400 font-medium">FAIL</span>
         <span class="text-gray-200 font-bold">{props.summary.failed}</span>
       </div>
@@ -27,7 +27,7 @@ const SummaryBar: Component<SummaryBarProps> = (props) => {
       <div class="bg-white/10 h-4 w-px" />
 
       <div class="flex gap-2 items-center">
-        <div class="i-ph-skip-forward-bold text-lg text-gray-400" />
+        <div class="i-ph:skip-forward-bold text-lg text-gray-400" />
         <span class="text-gray-400 font-medium">SKIP</span>
         <span class="text-gray-200 font-bold">{props.summary.skipped}</span>
       </div>
@@ -44,7 +44,7 @@ const SummaryBar: Component<SummaryBarProps> = (props) => {
       <div class="flex-1" />
 
       <div class="flex gap-2 items-center">
-        <div class="i-ph-clock-duotone text-lg text-gray-400" />
+        <div class="i-ph:clock-duotone text-lg text-gray-400" />
         <span class="text-gray-400 font-mono">{formatDuration(props.summary.duration)}</span>
       </div>
     </div>

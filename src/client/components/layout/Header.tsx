@@ -1,17 +1,12 @@
 import type { ConnectionStatus, RunPhase } from '@components/types'
 import type { Component } from 'solid-js'
 import { Button, ConnectionIndicator } from '@ui'
+import { Show } from 'solid-js'
 
 export interface HeaderProps {
   connection: ConnectionStatus
   phase: RunPhase
   onRunTests: () => void
-}
-
-const phaseLabels: Record<RunPhase, string> = {
-  running: 'Running tests…',
-  done: 'Last run finished',
-  idle: 'Idle',
 }
 
 const Header: Component<HeaderProps> = (props) => {
@@ -34,12 +29,17 @@ const Header: Component<HeaderProps> = (props) => {
       </div>
 
       <div class="flex gap-4 items-center">
-        <span class="text-sm text-gray-500 font-medium">{phaseLabels[props.phase]}</span>
         <Button
           onClick={props.onRunTests}
           disabled={props.connection !== 'connected' || props.phase === 'running'}
         >
           <div class="flex gap-2 items-center">
+            <Show
+              when={props.phase === 'running'}
+              fallback={<div class="i-ph:play-bold text-lg" />}
+            >
+              <div class="i-gg:spinner text-lg animate-spin" />
+            </Show>
             <span>{props.phase === 'idle' ? 'Run Tests' : 'Rerun Tests'}</span>
           </div>
         </Button>

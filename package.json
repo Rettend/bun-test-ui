@@ -55,6 +55,7 @@
     "@rttnd/bun-inspector-protocol": "^0.0.2",
     "@unocss/config": "^66.5.10",
     "@unocss/core": "^66.5.10",
+    "ansi_up": "^6.0.6",
     "solid-js": "^1.9.10"
   },
   "devDependencies": {

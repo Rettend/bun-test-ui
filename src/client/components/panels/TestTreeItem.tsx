@@ -84,7 +84,7 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
               onClick={handleChevronClick}
             >
               <div
-                class="i-ph-caret-right-bold text-xs transition-transform"
+                class="i-ph:caret-right-bold text-xs transition-transform"
                 classList={{ 'rotate-90': expanded() }}
               />
             </button>
@@ -120,7 +120,7 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
                 onClick={handlePlayClick}
                 title={`Run ${current.type === 'describe' ? 'suite' : 'test'}`}
               >
-                <div class="i-ph-play-fill text-xs" />
+                <div class="i-ph:play-fill text-xs" />
               </button>
             </Show>
           </div>

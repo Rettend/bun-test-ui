@@ -16,17 +16,12 @@ const TestExplorer: Component<TestExplorerProps> = (props) => {
   return (
     <aside class="border-r border-white/10 bg-#14141b flex flex-col h-full w-full overflow-auto">
       <div class="px-3 py-2.5 border-b border-white/5 flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-300 font-semibold">Test Explorer</p>
-          <p class="text-xs text-gray-500">
-            {props.summary.total}
-            {' '}
-            tests
-          </p>
-        </div>
-        <Show when={props.summary.running > 0}>
-          <span class="text-xs text-amber-300 px-2 py-0.5 rounded-full bg-amber-500/10">Running</span>
-        </Show>
+        <p class="text-sm text-gray-300 font-semibold">Test Explorer</p>
+        <span class="text-xs text-gray-500 font-medium">
+          {props.summary.total}
+          {' '}
+          tests
+        </span>
       </div>
       <div class="scrollbar-thin py-1 flex-1 overflow-auto">
         <For each={props.roots}>
