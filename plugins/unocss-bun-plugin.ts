@@ -60,7 +60,15 @@ export function UnoCSSPlugin(options: UnoOptions = {}): BunPlugin {
           }),
         )
 
-        const { css } = await uno.generate(inputs.join('\n'), { minify })
+        let { css } = await uno.generate(inputs.join('\n'), { minify })
+
+        // Workaround for Bun stripping mask properties
+        // It seems Bun's CSS parser has issues with the `mask` shorthand
+        // when mixed with `background-color` in this context, or simply dislikes the variable usage in mask.
+        css = css.replace(
+          /(-webkit-)?mask:var\(--un-icon\) no-repeat;/g,
+          '$1mask-image:var(--un-icon);$1mask-repeat:no-repeat;',
+        )
 
         return {
           contents: css,

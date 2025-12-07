@@ -6,4 +6,3 @@ plugins = [
 
 [test]
 root = "./tests"
-
