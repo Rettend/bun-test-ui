@@ -21,44 +21,8 @@ function parseBunfig(cwd: string): BunConfig {
 
   try {
     const content = readFileSync(bunfigPath, 'utf-8')
-    const config: BunConfig = {}
-    const lines = content.split('\n')
-    let currentSection = ''
 
-    for (const line of lines) {
-      const trimmed = line.trim()
-
-      if (trimmed.startsWith('#') || trimmed === '')
-        continue
-
-      const sectionMatch = trimmed.match(/^\[([^\]]+)\]$/)
-      if (sectionMatch) {
-        currentSection = sectionMatch[1]!
-        if (currentSection === 'test')
-          config.test = {}
-        continue
-      }
-
-      if (currentSection === 'test' && config.test) {
-        const kvMatch = trimmed.match(/^(\w+)\s*=\s*"([^"]*)"$|^(\w+)\s*=\s*(true|false|\d+)$/)
-        if (kvMatch) {
-          const key = kvMatch[1] ?? kvMatch[3]
-          const rawValue = kvMatch[2] ?? kvMatch[4]
-
-          let value: string | boolean | number = rawValue!
-          if (rawValue === 'true')
-            value = true
-          else if (rawValue === 'false')
-            value = false
-          else if (!Number.isNaN(Number(rawValue)) && kvMatch[4])
-            value = Number(rawValue)
-
-          ;(config.test as any)[key!] = value
-        }
-      }
-    }
-
-    return config
+    return Bun.TOML.parse(content)
   }
   catch {
     return {}
@@ -72,6 +36,7 @@ export interface TestUIConfig {
   open?: boolean
   cwd?: string
   watch?: boolean
+  preload?: string[]
 }
 
 export function getTestConfig(options: TestUIConfig = {}): Required<TestUIConfig> {
@@ -85,5 +50,6 @@ export function getTestConfig(options: TestUIConfig = {}): Required<TestUIConfig
     open: options.open ?? true,
     cwd,
     watch: options.watch ?? true,
+    preload: options.preload ?? bunfig.test?.preload ?? [],
   }
 }

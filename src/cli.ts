@@ -54,6 +54,7 @@ async function main() {
   process.env.BUN_TEST_UI_ROOT = config.testRoot
   process.env.BUN_TEST_UI_PATTERN = config.testPattern
   process.env.BUN_TEST_UI_WATCH = config.watch ? '1' : ''
+  process.env.BUN_TEST_UI_PRELOAD = JSON.stringify(config.preload)
 
   log.info(`${c.bold('bun test ui')} ${c.dim('v0.1')}`)
   log.info('')

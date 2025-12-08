@@ -1,4 +1,5 @@
 import type { ServerWebSocket, Subprocess } from 'bun'
+import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
 import { WebSocketInspector } from '@rttnd/bun-inspector-protocol'
@@ -320,12 +321,19 @@ if (isDev) {
 if (WATCH_ENABLED) {
   const watchPaths: string[] = []
 
-  if (TEST_ROOT)
-    watchPaths.push(TEST_ROOT)
-  else
-    watchPaths.push('./tests', './test')
+  try {
+    const entries = await readdir(process.cwd(), { withFileTypes: true })
+    const ignored = new Set(['node_modules', '.git', '.idea', '.vscode', '.next', 'dist', 'build', 'out', 'coverage'])
 
-  watchPaths.push('./src')
+    for (const entry of entries) {
+      if (ignored.has(entry.name) || (entry.name.startsWith('.') && entry.isDirectory()))
+        continue
+      watchPaths.push(entry.name)
+    }
+  }
+  catch {
+    watchPaths.push('.')
+  }
 
   const watcher = createFileWatcher({
     paths: watchPaths,
