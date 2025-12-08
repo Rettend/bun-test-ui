@@ -61,6 +61,6 @@ describe('array helpers', () => {
   })
 
   test.todo('stream large arrays to inspector panes without freezing', () => {
-    // placeholder to keep type checker satisfied while remaining todo
+
   })
 })

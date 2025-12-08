@@ -9,7 +9,7 @@ export type ActiveTab = 'dashboard' | 'coverage'
 export interface HeaderProps {
   connection: ConnectionStatus
   phase: RunPhase
-  activeTab: ActiveTab
+  activeTab: ActiveTab | null
   summary: TestSummary
   onRunTests: () => void
   onTabChange: (tab: ActiveTab) => void

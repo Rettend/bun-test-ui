@@ -1,7 +1,7 @@
 import type { RunPhase, TestSummary } from '@components/types'
 import type { Component } from 'solid-js'
 import { formatDuration } from '@components/utils'
-import { Show } from 'solid-js'
+import { createMemo, Show } from 'solid-js'
 
 export interface DashboardProps {
   summary: TestSummary
@@ -29,13 +29,13 @@ const SummaryCard: Component<SummaryCardProps> = (props) => {
 }
 
 const Dashboard: Component<DashboardProps> = (props) => {
-  const hasTests = () => props.summary.total > 0
-  const passRate = () => {
+  const hasTests = createMemo(() => props.summary.total > 0 || props.phase === 'running')
+  const passRate = createMemo(() => {
     const total = props.summary.passed + props.summary.failed
     if (total === 0)
       return 0
     return Math.round((props.summary.passed / total) * 100)
-  }
+  })
 
   return (
     <div class="p-6 flex flex-1 items-center justify-center">
@@ -47,7 +47,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
             <div class="space-y-2">
               <p class="text-gray-400 font-medium">No test results yet</p>
               <p class="text-sm text-gray-600">
-                {props.phase === 'running' ? 'Running tests...' : 'Press Run Tests to start'}
+                Press Run Tests to start
               </p>
             </div>
           </div>

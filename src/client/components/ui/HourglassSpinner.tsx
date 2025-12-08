@@ -1,5 +1,5 @@
 import type { Component } from 'solid-js'
-import { createSignal, onCleanup, onMount } from 'solid-js'
+import { createSignal, onCleanup } from 'solid-js'
 
 export interface HourglassSpinnerProps {
   class?: string
@@ -31,19 +31,17 @@ const HourglassSpinner: Component<HourglassSpinnerProps> = (props) => {
 
   const rotation = () => flipCount() * 180
 
-  onMount(() => {
-    const interval = setInterval(() => {
-      setFrame((prev) => {
-        const next = (prev + 1) % statesNormal.length
-        if (next === 0)
-          setFlipCount(f => f + 1)
+  const interval = setInterval(() => {
+    setFrame((prev) => {
+      const next = (prev + 1) % statesNormal.length
+      if (next === 0)
+        setFlipCount(f => f + 1)
 
-        return next
-      })
-    }, 300)
+      return next
+    })
+  }, 300)
 
-    onCleanup(() => clearInterval(interval))
-  })
+  onCleanup(() => clearInterval(interval))
 
   return (
     <div

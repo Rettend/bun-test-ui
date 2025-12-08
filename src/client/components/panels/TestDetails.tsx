@@ -52,6 +52,14 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
     statusColors[status()] ?? statusColors.idle!,
   )
 
+  const childErrors = createMemo(() => {
+    if (props.test.type !== 'describe')
+      return []
+    return props.test.children
+      .map(id => props.tests[id])
+      .filter((child): child is TestNode => Boolean(child?.error))
+  })
+
   return (
     <div class="space-y-4">
       <div class="flex gap-3 items-start">
@@ -202,46 +210,37 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
         </div>
       </Show>
 
-      <Show when={props.test.type === 'describe'}>
-        {(() => {
-          const childErrors = () => props.test.children
-            .map(id => props.tests[id])
-            .filter((child): child is TestNode => Boolean(child?.error))
-          return (
-            <Show when={childErrors().length > 0}>
-              <div class="border border-red-500/20 rounded-lg bg-red-500/10 overflow-hidden">
-                <div class="px-3 py-2 border-b border-red-500/20 bg-red-500/5">
-                  <p class="text-xs text-red-400 font-medium flex gap-2 items-center">
-                    <span class="i-ph:warning-duotone" />
-                    Errors (
-                    {childErrors().length}
-                    )
-                  </p>
+      <Show when={props.test.type === 'describe' && childErrors().length > 0}>
+        <div class="border border-red-500/20 rounded-lg bg-red-500/10 overflow-hidden">
+          <div class="px-3 py-2 border-b border-red-500/20 bg-red-500/5">
+            <p class="text-xs text-red-400 font-medium flex gap-2 items-center">
+              <span class="i-ph:warning-duotone" />
+              Errors (
+              {childErrors().length}
+              )
+            </p>
+          </div>
+          <div class="divide-red-500/10 divide-y">
+            <For each={childErrors()}>
+              {child => (
+                <div class="p-3">
+                  <button
+                    class="text-xs text-red-300 font-medium mb-2 flex gap-2 items-center hover:text-red-200"
+                    onClick={() => props.onNavigate(child.id)}
+                  >
+                    <StatusIcon status={child.status} size="sm" />
+                    {child.name}
+                  </button>
+                  <div
+                    class="ansi-output text-xs text-red-200/80 font-mono whitespace-pre-wrap break-words"
+                    // eslint-disable-next-line solid/no-innerhtml
+                    innerHTML={ansiToHtml(child.error!)}
+                  />
                 </div>
-                <div class="divide-red-500/10 divide-y">
-                  <For each={childErrors()}>
-                    {child => (
-                      <div class="p-3">
-                        <button
-                          class="text-xs text-red-300 font-medium mb-2 flex gap-2 items-center hover:text-red-200"
-                          onClick={() => props.onNavigate(child.id)}
-                        >
-                          <StatusIcon status={child.status} size="sm" />
-                          {child.name}
-                        </button>
-                        <div
-                          class="ansi-output text-xs text-red-200/80 font-mono whitespace-pre-wrap break-words"
-                          // eslint-disable-next-line solid/no-innerhtml
-                          innerHTML={ansiToHtml(child.error!)}
-                        />
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </div>
-            </Show>
-          )
-        })()}
+              )}
+            </For>
+          </div>
+        </div>
       </Show>
     </div>
   )

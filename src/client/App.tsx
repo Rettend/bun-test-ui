@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js'
 import type { ConnectionStatus, ConsoleEntry, ConsolePayload, RunPhase, TestNode, TestStatus } from './components'
 import type { ActiveTab } from './components/layout/Header'
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
+import { createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { ConsolePanel, Coverage, Dashboard, Header, ProgressBar, SplitPane, stringifyArg, TestDetails, TestExplorer } from './components'
 import { buildTestNamePattern, coerceElapsed, normalizeFilePath } from './utils/run'
@@ -20,9 +20,9 @@ const App: Component = () => {
   let consoleId = 0
   let runStartedAt = 0
   let activeTestId: string | null = null
-  const inspectorIdMap: Map<string, string> = new Map()
+  const inspectorIdMap = new Map<string, string>()
   let isFilteredRun = false
-  const targetedTestIds: Set<string> = new Set()
+  const targetedTestIds = new Set<string>()
 
   onMount(() => {
     connectWebSocket()
@@ -30,21 +30,8 @@ const App: Component = () => {
 
   onCleanup(() => ws?.close())
 
-  createEffect(() => {
-    if (phase() !== 'running')
-      return
-    const all = Object.values(tests)
-    if (all.length > 0 && all.every(test => test.status !== 'running' && test.status !== 'idle')) {
-      setPhase('done')
-      if (runStartedAt) {
-        setRunDuration(performance.now() - runStartedAt)
-        runStartedAt = 0
-      }
-    }
-  })
-
   const summary = createMemo(() => {
-    const all = Object.values(tests)
+    const all = Object.values(tests).filter((t): t is TestNode => Boolean(t))
     const passed = all.filter(t => t.status === 'passed').length
     const failed = all.filter(t => t.status === 'failed' || t.status === 'timeout').length
     const skipped = all.filter(t => t.status === 'skipped' || t.status === 'todo').length
@@ -367,8 +354,15 @@ const App: Component = () => {
       targetedTestIds.add(id)
 
     if (resetState) {
-      setTests({})
-      setRoots([])
+      setTests(produce((state) => {
+        for (const id in state) {
+          if (state[id]) {
+            state[id].status = 'idle'
+            state[id].duration = undefined
+            state[id].error = undefined
+          }
+        }
+      }))
     }
     else if (targetIds.length) {
       setTests(produce((state) => {
@@ -420,7 +414,7 @@ const App: Component = () => {
       <Header
         connection={connection()}
         phase={phase()}
-        activeTab={selectedId() ? 'dashboard' : activeTab()}
+        activeTab={selectedId() ? null : activeTab()}
         summary={summary()}
         onRunTests={runTests}
         onTabChange={(tab) => {
