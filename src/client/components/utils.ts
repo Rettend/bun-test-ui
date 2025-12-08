@@ -1,4 +1,4 @@
-import type { TestStatus } from './types'
+import type { TestNode, TestStatus } from './types'
 
 export function getStatusDotClass(status: TestStatus): string {
   switch (status) {
@@ -40,13 +40,9 @@ export function formatDuration(value?: number): string {
   if (typeof value !== 'number' || value <= 0)
     return '—'
 
-  // Bun's test reporter sends elapsed in nanoseconds
-  // Convert to milliseconds (divide by 1,000,000)
   let ms = value
-  if (value > 1_000_000) {
-    // Likely nanoseconds - convert to ms
+  if (value > 1_000_000)
     ms = value / 1_000_000
-  }
 
   if (ms < 1)
     return '<1ms'
@@ -73,4 +69,26 @@ export function stringifyArg(arg: unknown): string {
   catch {
     return String(arg)
   }
+}
+
+export function getAggregateStatus(node: TestNode, store: Record<string, TestNode>): TestStatus {
+  if (node.type === 'test')
+    return node.status
+
+  if (!node.children?.length)
+    return node.status
+
+  const childStatuses = node.children
+    .map(id => store[id])
+    .filter((child): child is TestNode => Boolean(child))
+    .map(child => getAggregateStatus(child, store))
+
+  if (childStatuses.includes('running'))
+    return 'running'
+  if (childStatuses.includes('failed') || childStatuses.includes('timeout'))
+    return 'failed'
+  if (childStatuses.every(s => s === 'passed' || s === 'skipped' || s === 'todo'))
+    return childStatuses.includes('passed') ? 'passed' : 'skipped'
+
+  return 'idle'
 }

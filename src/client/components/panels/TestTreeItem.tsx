@@ -1,6 +1,6 @@
 import type { TestNode, TestStatus } from '@components/types'
 import type { Component, JSX } from 'solid-js'
-import { formatDuration } from '@components/utils'
+import { formatDuration, getAggregateStatus } from '@components/utils'
 import { StatusIcon } from '@ui'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
@@ -105,10 +105,15 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
               {current.name || 'Test'}
             </span>
 
-            {/* Duration - only show for completed tests with valid duration */}
-            <Show when={current.duration != null && current.duration > 0 && status() !== 'running'}>
+            {/* Duration for tests, child count for groups */}
+            <Show when={current.type === 'test' && current.duration != null && current.duration > 0 && status() !== 'running'}>
               <span class="text-xs text-gray-500 font-mono ml-2 tabular-nums">
                 {formatDuration(current.duration)}
+              </span>
+            </Show>
+            <Show when={current.type === 'describe' && current.children.length > 0}>
+              <span class="text-xs text-gray-500 ml-2 tabular-nums">
+                {current.children.length}
               </span>
             </Show>
 
@@ -147,42 +152,10 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
               </For>
             </div>
           </Show>
-
-          {/* Error display */}
-          <Show when={current.error}>
-            <div
-              class="text-xs text-red-300 font-mono mx-2 my-1 p-2 border border-red-500/20 rounded bg-red-500/10 whitespace-pre-wrap"
-              style={{ 'margin-left': `${depth() * 12 + 24}px` }}
-            >
-              {current.error}
-            </div>
-          </Show>
         </div>
       )}
     </Show>
   )
-}
-
-function getAggregateStatus(node: TestNode, store: Record<string, TestNode>): TestStatus {
-  if (node.type === 'test')
-    return node.status
-
-  if (!node.children?.length)
-    return node.status
-
-  const childStatuses = node.children
-    .map(id => store[id])
-    .filter((child): child is TestNode => Boolean(child))
-    .map(child => getAggregateStatus(child, store))
-
-  if (childStatuses.includes('running'))
-    return 'running'
-  if (childStatuses.includes('failed') || childStatuses.includes('timeout'))
-    return 'failed'
-  if (childStatuses.every(s => s === 'passed' || s === 'skipped' || s === 'todo'))
-    return childStatuses.includes('passed') ? 'passed' : 'skipped'
-
-  return 'idle'
 }
 
 export default TestTreeItem

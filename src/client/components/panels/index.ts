@@ -1,5 +1,7 @@
 export { default as ConsoleEntryItem } from './ConsoleEntryItem'
 export { default as ConsolePanel } from './ConsolePanel'
+export { default as Coverage } from './Coverage'
+export { default as Dashboard } from './Dashboard'
 export { default as TestDetails } from './TestDetails'
 export { default as TestExplorer } from './TestExplorer'
 export { default as TestTreeItem } from './TestTreeItem'

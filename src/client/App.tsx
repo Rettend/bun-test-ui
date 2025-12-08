@@ -1,14 +1,16 @@
 import type { Component } from 'solid-js'
 import type { ConnectionStatus, ConsoleEntry, ConsolePayload, RunPhase, TestNode, TestStatus } from './components'
-import { createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import type { ActiveTab } from './components/layout/Header'
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
-import { ConsolePanel, Header, ProgressBar, SplitPane, stringifyArg, SummaryBar, TestDetails, TestExplorer } from './components'
+import { ConsolePanel, Coverage, Dashboard, Header, ProgressBar, SplitPane, stringifyArg, TestDetails, TestExplorer } from './components'
 import { buildTestNamePattern, coerceElapsed, normalizeFilePath } from './utils/run'
 
 const App: Component = () => {
   const [tests, setTests] = createStore<Record<string, TestNode>>({})
   const [roots, setRoots] = createSignal<string[]>([])
   const [selectedId, setSelectedId] = createSignal<string | null>(null)
+  const [activeTab, setActiveTab] = createSignal<ActiveTab>('dashboard')
   const [consoleEntries, setConsoleEntries] = createSignal<ConsoleEntry[]>([])
   const [connection, setConnection] = createSignal<ConnectionStatus>('connecting')
   const [phase, setPhase] = createSignal<RunPhase>('idle')
@@ -199,6 +201,20 @@ const App: Component = () => {
         handleConsole(msg.data as ConsolePayload)
         break
       }
+      case 'error': {
+        // LifecycleReporter.error - associate error with the current test
+        const { testId, message } = msg.data
+        if (testId != null) {
+          const inspectorId = String(testId)
+          const stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
+          // Store error immediately on the test node
+          setTests(stableId as any, test => ({
+            ...(test ?? { id: stableId, name: `Test ${stableId}`, type: 'test', status: 'idle', children: [] }),
+            error: message ?? test?.error,
+          }))
+        }
+        break
+      }
       case 'exit': {
         if (runStartedAt) {
           setRunDuration(performance.now() - runStartedAt)
@@ -231,8 +247,6 @@ const App: Component = () => {
 
     if (addAsRoot)
       setRoots(prev => (prev.includes(nodeId) ? prev : [...prev, nodeId]))
-    if (!selectedId())
-      setSelectedId(nodeId)
   }
 
   function findExistingNodeId(name: string, type: string, url?: string, parentStableId?: string): string | undefined {
@@ -333,7 +347,7 @@ const App: Component = () => {
     if (resetState) {
       setTests({})
       setRoots([])
-      setSelectedId(null)
+      // Don't reset selectedId - keep current selection (or null for dashboard)
     }
     else if (targetIds.length) {
       setTests(produce((state) => {
@@ -385,10 +399,14 @@ const App: Component = () => {
       <Header
         connection={connection()}
         phase={phase()}
+        activeTab={selectedId() ? 'dashboard' : activeTab()}
+        summary={summary()}
         onRunTests={runTests}
+        onTabChange={(tab) => {
+          setActiveTab(tab)
+          setSelectedId(null)
+        }}
       />
-
-      <SummaryBar summary={summary()} />
 
       <SplitPane
         initialWidth={256}
@@ -430,9 +448,27 @@ const App: Component = () => {
           />
         )}
         right={(
-          <main class="p-5 bg-#14141b flex-1 overflow-auto space-y-4">
-            <TestDetails test={selectedTest()} />
-            <ConsolePanel entries={consoleEntries()} />
+          <main class="bg-#14141b flex flex-1 flex-col h-full overflow-auto">
+            <Show
+              when={selectedTest()}
+              fallback={(
+                <Show when={activeTab() === 'coverage'} fallback={<Dashboard summary={summary()} phase={phase()} />}>
+                  <Coverage />
+                </Show>
+              )}
+            >
+              {test => (
+                <div class="p-4 space-y-4">
+                  <TestDetails
+                    test={test()}
+                    tests={tests}
+                    consoleEntries={consoleEntries()}
+                    onNavigate={setSelectedId}
+                  />
+                  <ConsolePanel entries={consoleEntries()} />
+                </div>
+              )}
+            </Show>
           </main>
         )}
       />

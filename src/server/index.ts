@@ -90,17 +90,57 @@ async function startTestRun(request?: RunRequest) {
     closed: false,
   }
 
+  // Track the current running test ID to associate errors with tests
+  let currentTestId: number | null = null
+
   inspector.on('TestReporter.found', (params: unknown) => {
     broadcast({ type: 'found', data: params })
   })
-  inspector.on('TestReporter.start', (params: unknown) => {
+  inspector.on('TestReporter.start', (params: any) => {
+    currentTestId = params?.id ?? null
     broadcast({ type: 'start', data: params })
   })
-  inspector.on('TestReporter.end', (params: unknown) => {
+  inspector.on('TestReporter.end', (params: any) => {
+    currentTestId = null
     broadcast({ type: 'end', data: params })
   })
   inspector.on('Runtime.consoleAPICalled', (params: any) => {
     broadcast({ type: 'console', data: params })
+  })
+
+  // LifecycleReporter.error provides actual error details for failed tests
+  inspector.on('LifecycleReporter.error', (params: any) => {
+    // Build stack trace from urls and lineColumns
+    const urls: string[] = params?.urls ?? []
+    const lineColumns: number[] = params?.lineColumns ?? []
+
+    const stackLines: string[] = []
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i]
+      const line = lineColumns[i * 2] ?? 0
+      const column = lineColumns[i * 2 + 1] ?? 0
+
+      if (column > 0 && line > 0)
+        stackLines.push(`    at ${url}:${line}:${column}`)
+      else if (line > 0)
+        stackLines.push(`    at ${url}:${line}`)
+      else if (url)
+        stackLines.push(`    at ${url}`)
+    }
+
+    // Format: "ErrorName: message\n\nstack trace"
+    const errorName = params?.name ?? 'Error'
+    const rawMessage = params?.message ?? 'Unknown error'
+    const stackTrace = stackLines.length > 0 ? `\n\n${stackLines.join('\n')}` : ''
+    const errorMessage = `${errorName}: ${rawMessage}${stackTrace}`
+
+    broadcast({
+      type: 'error',
+      data: {
+        testId: currentTestId,
+        message: errorMessage,
+      },
+    })
   })
 
   let inspectorConnecting = false
@@ -126,6 +166,7 @@ async function startTestRun(request?: RunRequest) {
       await inspector.send('Runtime.enable')
       await inspector.send('Console.enable')
       await inspector.send('TestReporter.enable')
+      await inspector.send('LifecycleReporter.enable').catch(() => {})
       await inspector.send('Debugger.enable').catch((err: any) => {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg !== 'Debugger domain already enabled')
