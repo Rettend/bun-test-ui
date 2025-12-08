@@ -1,31 +1,12 @@
 import type { Component } from 'solid-js'
 import type { RunPhase, TestSummary } from '~/components/types'
 import { createMemo, Show } from 'solid-js'
+import { SummaryCard } from '~/components'
 import { formatDuration } from '~/components/utils'
 
 export interface DashboardProps {
   summary: TestSummary
   phase: RunPhase
-}
-
-interface SummaryCardProps {
-  icon: string
-  iconColor: string
-  label: string
-  value: number
-  valueColor: string
-}
-
-const SummaryCard: Component<SummaryCardProps> = (props) => {
-  return (
-    <div class="p-4 border border-white/10 rounded-xl bg-white/[0.02]">
-      <div class="flex gap-3 items-center">
-        <div class={`${props.icon} text-2xl ${props.iconColor} shrink-0`} />
-        <p class={`text-4xl font-bold ${props.valueColor}`}>{props.value}</p>
-      </div>
-      <p class="text-sm text-gray-500 mt-2">{props.label}</p>
-    </div>
-  )
 }
 
 const Dashboard: Component<DashboardProps> = (props) => {
@@ -53,36 +34,44 @@ const Dashboard: Component<DashboardProps> = (props) => {
           </div>
         )}
       >
-        <div class="max-w-lg w-full space-y-6">
-          <div class="gap-3 grid grid-cols-4">
-            <SummaryCard
-              icon="i-ph:check-circle-duotone"
-              iconColor="text-emerald-400"
-              label="Passed"
-              value={props.summary.passed}
-              valueColor="text-emerald-400"
-            />
-            <SummaryCard
-              icon="i-ph:x-circle-duotone"
-              iconColor="text-red-400"
-              label="Failed"
-              value={props.summary.failed}
-              valueColor="text-red-400"
-            />
-            <SummaryCard
-              icon="i-ph:skip-forward-bold"
-              iconColor="text-gray-400"
-              label="Skipped"
-              value={props.summary.skipped}
-              valueColor="text-gray-400"
-            />
-            <SummaryCard
-              icon="i-ph:stack-bold"
-              iconColor="text-gray-300"
-              label="Total"
-              value={props.summary.total}
-              valueColor="text-gray-200"
-            />
+        <div class="max-w-xl w-full space-y-6">
+          <div class="flex gap-3">
+            <div class="flex-auto">
+              <SummaryCard
+                icon="i-ph:check-circle-duotone"
+                iconColor="text-emerald-400"
+                label="Passed"
+                value={props.summary.passed}
+                valueColor="text-emerald-400"
+              />
+            </div>
+            <div class="flex-auto">
+              <SummaryCard
+                icon="i-ph:x-circle-duotone"
+                iconColor="text-red-400"
+                label="Failed"
+                value={props.summary.failed}
+                valueColor="text-red-400"
+              />
+            </div>
+            <div class="flex-auto">
+              <SummaryCard
+                icon="i-ph:skip-forward-bold"
+                iconColor="text-gray-400"
+                label="Skipped"
+                value={props.summary.skipped}
+                valueColor="text-gray-400"
+              />
+            </div>
+            <div class="flex-auto">
+              <SummaryCard
+                icon="i-ph:stack-bold"
+                iconColor="text-gray-300"
+                label="Total"
+                value={props.summary.total}
+                valueColor="text-gray-200"
+              />
+            </div>
           </div>
 
           <div class="py-4 flex gap-8 items-center justify-center">
