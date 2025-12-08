@@ -8,6 +8,7 @@ A visual test runner UI for Bun, similar to [Vitest UI](https://vitest.dev/guide
 
 - **Auto-runs tests** when you open the UI
 - **Live updates** via WebSocket
+- **Watch mode** - auto-reruns tests when source or test files change
 - **Visual test explorer** with pass/fail/skip status
 - **Console output** per test
 - **Powered by Bun** - uses the inspector protocol
@@ -33,13 +34,14 @@ bunx bun-test-ui [pattern] [options]
 
 Options:
   -p, --port <number>  Port to run on (default: 51205)
+  --no-watch           Disable watch mode
   --no-open            Don't auto-open browser
 ```
 
 ### Examples
 
 ```bash
-# Run all tests
+# Run all tests with watch mode (default)
 bunx bun-test-ui
 
 # Filter by pattern
@@ -47,6 +49,9 @@ bunx bun-test-ui my-feature
 
 # Custom port
 bunx bun-test-ui --port 3000
+
+# Disable watch mode (single run)
+bunx bun-test-ui --no-watch
 ```
 
 ## Configuration
@@ -57,6 +62,11 @@ The CLI reads your `bunfig.toml` for test configuration:
 [test]
 root = "./tests"
 ```
+
+Watch mode (enabled by default) monitors both your test directory and `./src`:
+
+- **Test file changes** → Only that test file is re-run
+- **Source file changes** → All tests are re-run
 
 ## Development
 

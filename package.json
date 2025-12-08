@@ -43,12 +43,12 @@
     "src"
   ],
   "scripts": {
+    "dev": "BUN_TEST_UI_WATCH=1 bun --hot src/server/index.ts",
     "build": "bun run build.ts",
+    "start": "bun src/cli.ts",
     "lint": "eslint . --fix",
     "check": "tsgo --noEmit -p tsconfig.json",
     "update": "taze latest -wr",
-    "dev": "bun --hot src/server/index.ts",
-    "start": "bun src/cli.ts",
     "release": "bumpp && bun run build && bun publish"
   },
   "dependencies": {
@@ -56,6 +56,7 @@
     "@unocss/config": "^66.5.10",
     "@unocss/core": "^66.5.10",
     "ansi_up": "^6.0.6",
+    "picocolors": "^1.1.1",
     "solid-js": "^1.9.10"
   },
   "devDependencies": {

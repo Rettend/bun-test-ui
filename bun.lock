@@ -9,6 +9,7 @@
         "@unocss/config": "^66.5.10",
         "@unocss/core": "^66.5.10",
         "ansi_up": "^6.0.6",
+        "picocolors": "^1.1.1",
         "solid-js": "^1.9.10",
       },
       "devDependencies": {

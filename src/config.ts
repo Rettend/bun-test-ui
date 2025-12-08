@@ -60,23 +60,18 @@ function parseBunfig(cwd: string): BunConfig {
 
     return config
   }
-  catch (error) {
-    console.warn('Failed to parse bunfig.toml:', error)
+  catch {
     return {}
   }
 }
 
 export interface TestUIConfig {
-  /** Port for the UI server (default: 51205) */
   port?: number
-  /** Test root directory (reads from bunfig.toml [test].root if not specified) */
   testRoot?: string
-  /** Test pattern/filter to pass to bun test */
   testPattern?: string
-  /** Open browser automatically (default: true) */
   open?: boolean
-  /** Working directory (default: process.cwd()) */
   cwd?: string
+  watch?: boolean
 }
 
 export function getTestConfig(options: TestUIConfig = {}): Required<TestUIConfig> {
@@ -89,5 +84,6 @@ export function getTestConfig(options: TestUIConfig = {}): Required<TestUIConfig
     testPattern: options.testPattern ?? '',
     open: options.open ?? true,
     cwd,
+    watch: options.watch ?? true,
   }
 }

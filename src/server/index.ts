@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { WebSocketInspector } from '@rttnd/bun-inspector-protocol'
 import { serve, spawn } from 'bun'
+import { c, log } from './log'
 import { TCPSocketSignal } from './signal'
 import { getFreePort } from './utils'
+import { createFileWatcher } from './watcher'
 
 const DIST_DIR = join(import.meta.dir, '..', '..', 'dist', 'client')
 const CLIENT_DIR = join(process.cwd(), 'src', 'client')
@@ -13,10 +15,10 @@ const isDev = process.env.NODE_ENV !== 'production' || process.env.BUN_HOT === '
 const PORT = Number.parseInt(process.env.BUN_TEST_UI_PORT ?? '51205', 10)
 const TEST_ROOT = process.env.BUN_TEST_UI_ROOT ?? ''
 const TEST_PATTERN = process.env.BUN_TEST_UI_PATTERN ?? ''
+const WATCH_ENABLED = process.env.BUN_TEST_UI_WATCH === '1'
 
 let devIndexHtml: any
 if (isDev) {
-  // Bun HTML import provides bundled dev asset (with virtual:uno.css resolved)
   const devIndexImport = await import('../client/index.html', { with: { type: 'html' } } as any)
   devIndexHtml = (devIndexImport as any).default ?? devIndexImport
 }
@@ -59,13 +61,11 @@ function normalizeFilePath(path?: string): string | null {
     }
   }
   catch {
-    // ignore malformed urls and fall back to original path
   }
   return path
 }
 
 async function startTestRun(request?: RunRequest) {
-  console.warn('Starting test run...')
   if (state.process) {
     state.process.kill()
     state.process = null
@@ -90,7 +90,6 @@ async function startTestRun(request?: RunRequest) {
     closed: false,
   }
 
-  // Track the current running test ID to associate errors with tests
   let currentTestId: number | null = null
 
   inspector.on('TestReporter.found', (params: unknown) => {
@@ -108,9 +107,7 @@ async function startTestRun(request?: RunRequest) {
     broadcast({ type: 'console', data: params })
   })
 
-  // LifecycleReporter.error provides actual error details for failed tests
   inspector.on('LifecycleReporter.error', (params: any) => {
-    // Build stack trace from urls and lineColumns
     const urls: string[] = params?.urls ?? []
     const lineColumns: number[] = params?.lineColumns ?? []
 
@@ -128,7 +125,6 @@ async function startTestRun(request?: RunRequest) {
         stackLines.push(`    at ${url}`)
     }
 
-    // Format: "ErrorName: message\n\nstack trace"
     const errorName = params?.name ?? 'Error'
     const rawMessage = params?.message ?? 'Unknown error'
     const stackTrace = stackLines.length > 0 ? `\n\n${stackLines.join('\n')}` : ''
@@ -149,13 +145,13 @@ async function startTestRun(request?: RunRequest) {
     if (connectState.closed || inspectorReady || inspectorConnecting)
       return
     if (connectState.attempts >= connectState.maxAttempts) {
-      console.warn('Inspector connect giving up after attempts', connectState.attempts)
+      log.debug('Inspector connect giving up after attempts', connectState.attempts)
       connectState.closed = true
       return
     }
     connectState.attempts += 1
     inspectorConnecting = true
-    console.warn('Inspector signal received, connecting to WebSocket inspector...')
+    log.debug('Connecting to inspector...')
     try {
       const ok = await inspector.start(inspectorUrl)
       if (!ok)
@@ -167,20 +163,14 @@ async function startTestRun(request?: RunRequest) {
       await inspector.send('Console.enable')
       await inspector.send('TestReporter.enable')
       await inspector.send('LifecycleReporter.enable').catch(() => {})
-      await inspector.send('Debugger.enable').catch((err: any) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (msg !== 'Debugger domain already enabled')
-          console.warn('Debugger.enable failed', err)
-      })
+      await inspector.send('Debugger.enable').catch(() => {})
       await inspector.send('Debugger.setBreakpointsActive', { active: true }).catch(() => {})
       await inspector.send('Inspector.initialized').catch(() => {})
       await inspector.send('Debugger.resume').catch(() => {})
-      console.warn('Inspector ready')
     }
     catch (error) {
       inspectorConnecting = false
-      console.error('Inspector init failed', error)
-      broadcast({ type: 'output', stream: 'stderr', data: `Inspector init failed: ${error instanceof Error ? error.message : String(error)}` })
+      log.debug('Inspector init failed, retrying...', error)
       setTimeout(tryConnectInspector, 300)
       return
     }
@@ -195,24 +185,22 @@ async function startTestRun(request?: RunRequest) {
     inspectorReady = false
     inspectorConnecting = false
     if (error)
-      console.warn('Inspector disconnected', error)
+      log.debug('Inspector disconnected', error)
   })
   inspector.on('Inspector.error', (error) => {
-    console.error('Inspector error', error)
+    log.debug('Inspector error', error)
   })
 
   state.signal.on('Signal.Socket.connect', tryConnectInspector)
   state.signal.on('Signal.received', tryConnectInspector)
-  state.signal.on('Signal.error', error => console.error('Inspector signal error', error))
+  state.signal.on('Signal.error', error => log.debug('Inspector signal error', error))
 
-  console.warn(`Spawning bun test with BUN_INSPECT=${inspectorUrl}?wait=1 (notify ${state.signal.url})`)
-
-  // Build the test command
   const requestedFiles = Array.from(
     new Set((request?.files ?? []).map(normalizeFilePath).filter(Boolean) as string[]),
   )
 
   const testCmd = ['bun', 'test']
+
   if (requestedFiles.length)
     testCmd.push(...requestedFiles)
   else if (TEST_ROOT)
@@ -224,8 +212,6 @@ async function startTestRun(request?: RunRequest) {
   if (request?.testNamePattern)
     testCmd.push('--test-name-pattern', request.testNamePattern)
 
-  console.warn(`Spawning: ${testCmd.join(' ')}`)
-
   state.process = spawn({
     cmd: testCmd,
     stdout: 'pipe',
@@ -233,38 +219,36 @@ async function startTestRun(request?: RunRequest) {
     env: {
       ...process.env,
       FORCE_COLOR: '1',
-      // Pause until inspector attaches so we don't miss TestReporter events
       BUN_INSPECT: `${inspectorUrl}?wait=1`,
       BUN_INSPECT_NOTIFY: state.signal.url,
     },
   })
 
   state.process.exited?.then((code) => {
-    console.warn('bun test exited', code)
     connectState.closed = true
     broadcast({ type: 'exit', code })
-  }).catch((error) => {
-    console.error('Failed waiting for test process exit', error)
-  })
+  }).catch(() => {})
 
   async function streamOutput(reader: any, type: 'stdout' | 'stderr') {
     const decoder = new TextDecoder()
+    const output = type === 'stdout' ? process.stdout : process.stderr
     while (true) {
       const { done, value } = await reader.read()
       if (done)
         break
       const text = decoder.decode(value)
+      output.write(text)
       broadcast({ type: 'output', stream: type, data: text })
     }
   }
 
   if (state.process.stdout && typeof state.process.stdout !== 'number')
-    streamOutput(state.process.stdout.getReader(), 'stdout').catch((e: any) => console.error('stdout stream failed', e))
+    streamOutput(state.process.stdout.getReader(), 'stdout').catch(() => {})
   if (state.process.stderr && typeof state.process.stderr !== 'number')
-    streamOutput(state.process.stderr.getReader(), 'stderr').catch((e: any) => console.error('stderr stream failed', e))
+    streamOutput(state.process.stderr.getReader(), 'stderr').catch(() => {})
 }
 
-const server = serve({
+serve({
   port: PORT,
   development: isDev ? { hmr: true, console: true } : undefined,
   routes: isDev
@@ -286,18 +270,15 @@ const server = serve({
       })
     }
 
-    // static files (dev from src/client, prod from dist)
     let path = url.pathname === '/' ? 'index.html' : url.pathname
     if (path.startsWith('/'))
       path = path.slice(1)
 
-    // dev: let routes/html import handle bundling
     const baseDir = isDev ? CLIENT_DIR : DIST_DIR
     const filePath = join(baseDir, path)
     const file = Bun.file(filePath)
 
     if (isDev) {
-      // dev: let Bun handle TSX/HTML with HMR, 404 when missing
       if (!(await file.exists()))
         return new Response('Not Found', { status: 404 })
       return new Response(file)
@@ -317,13 +298,11 @@ const server = serve({
           startTestRun({ files, testNamePattern })
         }
       }
-      catch (e) {
-        console.error('Failed to parse message', e)
+      catch {
       }
     },
     open(ws) {
       state.clients.add(ws)
-      console.warn('Client connected')
     },
     close(ws) {
       state.clients.delete(ws)
@@ -331,4 +310,44 @@ const server = serve({
   },
 })
 
-console.warn(`Listening on http://localhost:${server.port}`)
+if (isDev) {
+  log.info(`${c.bold('bun test ui')} ${c.dim('dev')}`)
+  log.info('')
+  log.info(c.cyan(`http://localhost:${PORT}`))
+  log.info('')
+}
+
+if (WATCH_ENABLED) {
+  const watchPaths: string[] = []
+
+  if (TEST_ROOT)
+    watchPaths.push(TEST_ROOT)
+  else
+    watchPaths.push('./tests', './test')
+
+  watchPaths.push('./src')
+
+  const watcher = createFileWatcher({
+    paths: watchPaths,
+    onChange: (info) => {
+      broadcast({
+        type: 'file-changed',
+        data: {
+          filename: info.filename,
+          fullPath: info.fullPath,
+          isTestFile: info.isTestFile,
+        },
+      })
+    },
+    debounceMs: 50,
+  })
+
+  process.on('SIGINT', () => {
+    watcher.close()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    watcher.close()
+    process.exit(0)
+  })
+}

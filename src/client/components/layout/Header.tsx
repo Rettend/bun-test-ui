@@ -21,7 +21,6 @@ const Header: Component<HeaderProps> = (props) => {
 
   return (
     <header class="px-4 border-b border-white/10 bg-#14141b flex h-12 items-center justify-between">
-      {/* Left section: Connection + Nav + Summaries */}
       <div class="flex gap-4 min-w-0 items-center">
         <ConnectionIndicator status={props.connection} />
 
@@ -60,7 +59,6 @@ const Header: Component<HeaderProps> = (props) => {
 
         <div class="bg-white/10 shrink-0 h-6 w-px" />
 
-        {/* Summary stats */}
         <div class="text-sm flex gap-4 min-w-0 items-center overflow-hidden">
           <div class="flex shrink-0 gap-1.5 items-center">
             <div class="i-ph:check-circle-duotone text-lg text-emerald-400" />
@@ -95,7 +93,6 @@ const Header: Component<HeaderProps> = (props) => {
         </div>
       </div>
 
-      {/* Right section: Duration + Run button */}
       <div class="flex shrink-0 gap-4 items-center">
         <div class="text-sm gap-1.5 hidden items-center md:flex">
           <div class="i-ph:clock-duotone text-lg text-gray-400" />

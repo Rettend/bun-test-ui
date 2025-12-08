@@ -45,7 +45,6 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
   })
 
   const handleRowClick: JSX.EventHandler<HTMLDivElement, MouseEvent> = (e) => {
-    // Don't select if clicking on the play button
     if ((e.target as HTMLElement).closest('[data-play-btn]'))
       return
     props.onSelect(node()!.id)
@@ -65,7 +64,6 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
     <Show when={node()} keyed>
       {current => (
         <div>
-          {/* Tree item row - 28px height like Vitest */}
           <div
             class="group pr-2 flex h-7 select-none transition-colors items-center"
             classList={{
@@ -77,7 +75,6 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
           >
-            {/* Chevron toggle */}
             <button
               class="text-gray-500 flex shrink-0 h-4 w-4 transition-colors items-center justify-center hover:text-gray-300"
               classList={{ 'opacity-0 pointer-events-none': !hasChildren() }}
@@ -89,12 +86,10 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
               />
             </button>
 
-            {/* Status icon */}
             <div class="flex shrink-0 h-5 w-5 items-center justify-center">
               <StatusIcon status={status()} size="sm" />
             </div>
 
-            {/* Test name */}
             <span
               class="text-xs font-medium ml-1 flex-1 truncate"
               classList={{
@@ -105,7 +100,6 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
               {current.name || 'Test'}
             </span>
 
-            {/* Duration for tests, child count for groups */}
             <Show when={current.type === 'test' && current.duration != null && current.duration > 0 && status() !== 'running'}>
               <span class="text-xs text-gray-500 font-mono ml-2 tabular-nums">
                 {formatDuration(current.duration)}
@@ -117,7 +111,6 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
               </span>
             </Show>
 
-            {/* Play button on hover */}
             <Show when={hovered()}>
               <button
                 data-play-btn
@@ -130,10 +123,8 @@ const TestTreeItem: Component<TestTreeItemProps> = (props) => {
             </Show>
           </div>
 
-          {/* Children with vertical line */}
           <Show when={expanded() && hasChildren()}>
             <div class="relative">
-              {/* Vertical connector line */}
               <div
                 class="bg-white/10 w-px bottom-0 top-0 absolute"
                 style={{ left: `${depth() * 12 + 11}px` }}

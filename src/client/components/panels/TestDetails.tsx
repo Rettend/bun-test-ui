@@ -13,7 +13,6 @@ export interface TestDetailsProps {
 }
 
 const TestDetails: Component<TestDetailsProps> = (props) => {
-  // Build breadcrumb path from test to root
   const breadcrumb = createMemo(() => {
     const path: Array<{ id: string, name: string }> = []
     let current: TestNode | undefined = props.test
@@ -26,12 +25,10 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
     return path
   })
 
-  // Filter console entries to only show those from this test
   const filteredConsole = createMemo(() => {
     return (props.consoleEntries ?? []).filter(e => e.testId === props.test.id)
   })
 
-  // Format file location
   const fileLocation = createMemo(() => {
     if (!props.test.url)
       return null
@@ -39,7 +36,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
     return `${props.test.url}${line}`
   })
 
-  // Status color classes
   const statusColors: Record<string, { bg: string, text: string, border: string }> = {
     passed: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
     failed: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
@@ -50,7 +46,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
     idle: { bg: 'bg-gray-500/10', text: 'text-gray-500', border: 'border-gray-500/20' },
   }
 
-  // Compute actual status (aggregate for describe blocks)
   const status = createMemo(() => getAggregateStatus(props.test, props.tests))
 
   const colors = createMemo(() =>
@@ -59,19 +54,16 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
 
   return (
     <div class="space-y-4">
-      {/* Header: Name + Status */}
       <div class="flex gap-3 items-start">
         <StatusIcon status={status()} class="text-xl mt-1.3 shrink-0" />
         <div class="flex-1 min-w-0">
           <h1 class="text-lg text-gray-200 font-semibold break-words">{props.test.name}</h1>
-          {/* Always reserve space for duration to prevent layout jumping */}
           <p class="text-xs text-gray-500 mt-1 h-4">
             {props.test.duration !== undefined ? formatDuration(props.test.duration) : '\u00A0'}
           </p>
         </div>
       </div>
 
-      {/* Breadcrumb */}
       <Show when={breadcrumb().length > 1}>
         <nav class="text-xs flex flex-wrap gap-1 items-center">
           <For each={breadcrumb()}>
@@ -97,7 +89,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
         </nav>
       </Show>
 
-      {/* Metadata */}
       <div class={`border ${colors().border} rounded-lg ${colors().bg} p-3`}>
         <div class="text-sm gap-x-6 gap-y-2 grid grid-cols-2">
           <div class="flex gap-2 items-center">
@@ -123,7 +114,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
         </div>
       </div>
 
-      {/* Error Panel */}
       <Show when={props.test.error}>
         <div class="border border-red-500/20 rounded-lg bg-red-500/10 overflow-hidden">
           <div class="px-3 py-2 border-b border-red-500/20 bg-red-500/5">
@@ -140,7 +130,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
         </div>
       </Show>
 
-      {/* Console Output for this test */}
       <Show when={filteredConsole().length > 0}>
         <div class="border border-white/10 rounded-lg overflow-hidden">
           <div class="px-3 py-2 border-b border-white/10 bg-white/[0.02]">
@@ -182,7 +171,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
         </div>
       </Show>
 
-      {/* Children (for describe blocks) */}
       <Show when={props.test.type === 'describe' && props.test.children.length > 0}>
         <div class="border border-white/10 rounded-lg overflow-hidden">
           <div class="px-3 py-2 border-b border-white/10 bg-white/[0.02]">
@@ -214,7 +202,6 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
         </div>
       </Show>
 
-      {/* Errors from children (for describe blocks) */}
       <Show when={props.test.type === 'describe'}>
         {(() => {
           const childErrors = () => props.test.children

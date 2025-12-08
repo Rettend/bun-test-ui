@@ -54,7 +54,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
         )}
       >
         <div class="max-w-lg w-full space-y-6">
-          {/* Summary Cards Grid */}
           <div class="gap-3 grid grid-cols-4">
             <SummaryCard
               icon="i-ph:check-circle-duotone"
@@ -78,7 +77,7 @@ const Dashboard: Component<DashboardProps> = (props) => {
               valueColor="text-gray-400"
             />
             <SummaryCard
-              icon="i-ph:sum-duotone"
+              icon="i-ph:stack-bold"
               iconColor="text-gray-300"
               label="Total"
               value={props.summary.total}
@@ -86,7 +85,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
             />
           </div>
 
-          {/* Pass Rate & Duration */}
           <div class="py-4 flex gap-8 items-center justify-center">
             <div class="text-center">
               <p class="text-3xl text-gray-200 font-bold">
@@ -102,7 +100,6 @@ const Dashboard: Component<DashboardProps> = (props) => {
             </div>
           </div>
 
-          {/* Running indicator */}
           <div class="flex h-8 items-center justify-center">
             <div
               class="text-amber-400 flex gap-2 transition-opacity duration-200 items-center"

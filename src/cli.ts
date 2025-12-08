@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-/* eslint-disable no-console */
 import process from 'node:process'
 import { getTestConfig } from './config'
+import { c, log } from './server/log'
 
 async function openBrowser(url: string) {
   const { platform } = process
@@ -19,7 +19,6 @@ async function openBrowser(url: string) {
     await proc.exited
   }
   catch {
-    console.warn(`Could not open browser. Please visit: ${url}`)
   }
 }
 
@@ -29,6 +28,7 @@ async function main() {
   let port = 51205
   let testPattern = ''
   let noOpen = false
+  let noWatch = false
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
@@ -36,6 +36,8 @@ async function main() {
       port = Number.parseInt(args[++i]!, 10) || 51205
     else if (arg === '--no-open')
       noOpen = true
+    else if (arg === '--no-watch')
+      noWatch = true
     else if (!arg.startsWith('-'))
       testPattern = arg
   }
@@ -44,29 +46,29 @@ async function main() {
     port,
     testPattern,
     open: !noOpen,
+    watch: !noWatch,
   })
 
   process.env.NODE_ENV = 'production'
   process.env.BUN_TEST_UI_PORT = String(config.port)
   process.env.BUN_TEST_UI_ROOT = config.testRoot
   process.env.BUN_TEST_UI_PATTERN = config.testPattern
+  process.env.BUN_TEST_UI_WATCH = config.watch ? '1' : ''
 
-  console.log('🧪 Starting Bun Test UI...')
-  console.log(`   Port: ${config.port}`)
-  if (config.testRoot)
-    console.log(`   Test root: ${config.testRoot}`)
-  if (config.testPattern)
-    console.log(`   Pattern: ${config.testPattern}`)
+  log.info(`${c.bold('bun test ui')} ${c.dim('v0.1')}`)
+  log.info('')
+  log.info(c.cyan(`http://localhost:${config.port}`))
+  log.info('')
 
   await import('./server/index.js')
 
   const url = `http://localhost:${config.port}`
 
   if (config.open)
-    setTimeout(() => openBrowser(url), 500) // TODO: remove?
+    setTimeout(() => openBrowser(url), 500)
 }
 
 main().catch((error) => {
-  console.error('Failed to start Bun Test UI:', error)
+  log.error('Failed to start:', error)
   process.exit(1)
 })

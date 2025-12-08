@@ -65,14 +65,7 @@ const App: Component = () => {
   interface RunOptions {
     files?: string[]
     testNamePattern?: string
-    /**
-     * When false, we keep the existing tree and only reset targeted tests.
-     * Defaults to true when no filters are provided.
-     */
     resetState?: boolean
-    /**
-     * Leaf test ids we are about to run; used to reset status/duration/error.
-     */
     targetIds?: string[]
   }
 
@@ -107,14 +100,11 @@ const App: Component = () => {
         const inspectorParentId = parentId != null ? String(parentId) : undefined
 
         if (isFilteredRun) {
-          // During filtered runs, try to find existing node by path
           const parentStableId = inspectorParentId ? inspectorIdMap.get(inspectorParentId) : undefined
           const stableId = findExistingNodeId(name, type, url, parentStableId)
 
           if (stableId) {
-            // Map inspector ID to existing stable ID
             inspectorIdMap.set(inspectorId, stableId)
-            // Update the existing node's metadata if needed
             setTests(stableId as any, node => ({
               ...node,
               url: url ?? node.url,
@@ -122,14 +112,11 @@ const App: Component = () => {
             }))
           }
           else {
-            // Node not found - this shouldn't happen in a well-formed filtered run
-            // but handle gracefully by creating a new node
             inspectorIdMap.set(inspectorId, inspectorId)
             createNewNode(inspectorId, name, type, url, line, parentStableId)
           }
         }
         else {
-          // Full run: use inspector IDs as stable IDs
           inspectorIdMap.set(inspectorId, inspectorId)
           const parentNodeId = inspectorParentId
           createNewNode(inspectorId, name, type, url, line, parentNodeId)
@@ -176,7 +163,6 @@ const App: Component = () => {
 
         const elapsedNumber = coerceElapsed(elapsed)
         setTests(stableId as any, (test) => {
-          // Prefer inspector elapsed when present and > 0; otherwise fallback to client timer
           const duration = elapsedNumber && elapsedNumber > 0
             ? elapsedNumber
             : test?.startedAt
@@ -202,12 +188,10 @@ const App: Component = () => {
         break
       }
       case 'error': {
-        // LifecycleReporter.error - associate error with the current test
         const { testId, message } = msg.data
         if (testId != null) {
           const inspectorId = String(testId)
           const stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
-          // Store error immediately on the test node
           setTests(stableId as any, test => ({
             ...(test ?? { id: stableId, name: `Test ${stableId}`, type: 'test', status: 'idle', children: [] }),
             error: message ?? test?.error,
@@ -222,6 +206,49 @@ const App: Component = () => {
         }
         activeTestId = null
         setPhase('done')
+        break
+      }
+      case 'file-changed': {
+        const data = msg.data ?? {}
+        const changedPath = normalizeFilePath(data.fullPath)
+
+        if (data.isTestFile && changedPath) {
+          const fileRootId = roots().find((rootId) => {
+            const root = tests[rootId]
+            return root && normalizeFilePath(root.url) === changedPath
+          })
+
+          if (fileRootId) {
+            const selection = collectLeafTests(fileRootId)
+
+            if (selection.length > 0) {
+              const files = Array.from(new Set(selection.map(test => test.file).filter(Boolean))) as string[]
+              const pattern = buildTestNamePattern(selection.map(test => test.path))
+              const targetIds = selection.map(test => test.id)
+
+              runTests({
+                files: files.length ? files : undefined,
+                testNamePattern: pattern,
+                resetState: false,
+                targetIds,
+              })
+            }
+            else {
+              const node = tests[fileRootId]
+              runTests({
+                files: changedPath ? [changedPath] : undefined,
+                resetState: false,
+                targetIds: node ? [node.id] : [],
+              })
+            }
+          }
+          else {
+            runTests()
+          }
+        }
+        else {
+          runTests()
+        }
         break
       }
     }
@@ -252,7 +279,6 @@ const App: Component = () => {
   function findExistingNodeId(name: string, type: string, url?: string, parentStableId?: string): string | undefined {
     const normalizedUrl = normalizeFilePath(url)
 
-    // Search in the appropriate scope
     const searchScope = parentStableId ? tests[parentStableId]?.children ?? [] : roots()
 
     for (const candidateId of searchScope) {
@@ -260,9 +286,7 @@ const App: Component = () => {
       if (!candidate)
         continue
 
-      // Match by name and type
       if (candidate.name === name && candidate.type === type) {
-        // For root-level nodes, also check file path
         if (!parentStableId) {
           const candidateUrl = normalizeFilePath(candidate.url)
           if (candidateUrl === normalizedUrl)
@@ -335,11 +359,9 @@ const App: Component = () => {
     setRunDuration(0)
     runStartedAt = performance.now()
 
-    // Clear inspector ID mapping and set run mode
     inspectorIdMap.clear()
     isFilteredRun = !resetState
 
-    // Track which tests we're targeting for this filtered run
     targetedTestIds.clear()
     for (const id of targetIds)
       targetedTestIds.add(id)
@@ -347,7 +369,6 @@ const App: Component = () => {
     if (resetState) {
       setTests({})
       setRoots([])
-      // Don't reset selectedId - keep current selection (or null for dashboard)
     }
     else if (targetIds.length) {
       setTests(produce((state) => {
@@ -421,7 +442,6 @@ const App: Component = () => {
             onSelect={setSelectedId}
             onRunTest={(id) => {
               const selection = collectLeafTests(id)
-              // If we don't have discovered leaf tests yet, fall back to a file-only run
               if (selection.length === 0) {
                 const node = tests[id]
                 const file = normalizeFilePath(node?.url)

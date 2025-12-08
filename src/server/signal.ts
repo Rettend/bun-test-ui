@@ -1,9 +1,7 @@
 import type { Socket } from 'node:net'
 import { EventEmitter } from 'node:events'
 import { createServer } from 'node:net'
-import process from 'node:process'
-
-const isDebug = process.env.NODE_ENV === 'development'
+import { log } from './log'
 
 export interface SignalEventMap {
   'Signal.listening': []
@@ -53,9 +51,7 @@ export class TCPSocketSignal extends EventEmitter {
   }
 
   override emit<E extends keyof SignalEventMap>(event: E, ...args: SignalEventMap[E]): boolean {
-    if (isDebug)
-      console.warn('[Signal]', event, ...args)
-
+    log.debug('[Signal]', event, ...args)
     return super.emit(event, ...args)
   }
 

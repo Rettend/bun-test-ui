@@ -2,13 +2,15 @@ export function normalizeFilePath(url?: string): string | undefined {
   if (!url)
     return undefined
   try {
+    let path = url
     if (url.startsWith('file://')) {
       const parsed = new URL(url)
-      let path = decodeURIComponent(parsed.pathname)
+      path = decodeURIComponent(parsed.pathname)
       if (path.startsWith('/') && path[2] === ':')
         path = path.slice(1)
-      return path
     }
+    path = path.replace(/\\/g, '/')
+    return path
   }
   catch {}
   return url
@@ -30,9 +32,7 @@ export function buildTestNamePattern(paths: string[][]): string | undefined {
     escaped = escaped.replaceAll(/\\\$\{[^}]+\}/g, '.*?')
     escaped = escaped.replaceAll(/\\%[isfd]/g, '.*?')
 
-    // Anchored full-path match
     patternVariants.push(`^ ${escaped}$`)
-    // Unanchored fallback
     patternVariants.push(escaped)
   }
 
