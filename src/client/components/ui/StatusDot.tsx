@@ -1,6 +1,6 @@
-import type { TestStatus } from '@components/types'
 import type { Component } from 'solid-js'
-import { getStatusDotClass } from '@components/utils'
+import type { TestStatus } from '~/components/types'
+import { getStatusDotClass } from '~/components/utils'
 
 export interface StatusDotProps {
   status: TestStatus

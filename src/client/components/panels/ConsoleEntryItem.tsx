@@ -1,7 +1,7 @@
-import type { ConsoleEntry as ConsoleEntryType } from '@components/types'
 import type { Component } from 'solid-js'
-import { formatTimestamp, getStatusBadgeClass } from '@components/utils'
+import type { ConsoleEntry as ConsoleEntryType } from '~/components/types'
 import { createMemo, Show } from 'solid-js'
+import { formatTimestamp, getStatusBadgeClass } from '~/components/utils'
 
 export interface ConsoleEntryItemProps {
   entry: ConsoleEntryType

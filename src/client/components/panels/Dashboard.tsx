@@ -1,7 +1,7 @@
-import type { RunPhase, TestSummary } from '@components/types'
 import type { Component } from 'solid-js'
-import { formatDuration } from '@components/utils'
+import type { RunPhase, TestSummary } from '~/components/types'
 import { createMemo, Show } from 'solid-js'
+import { formatDuration } from '~/components/utils'
 
 export interface DashboardProps {
   summary: TestSummary

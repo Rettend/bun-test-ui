@@ -1,5 +1,5 @@
-import type { TestSummary } from '@components/types'
 import type { Component } from 'solid-js'
+import type { TestSummary } from '~/components/types'
 import { createMemo, Show } from 'solid-js'
 
 export interface ProgressBarProps {

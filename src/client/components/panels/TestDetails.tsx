@@ -1,9 +1,9 @@
-import type { ConsoleEntry, TestNode } from '@components/types'
 import type { Component } from 'solid-js'
-import { formatDuration, getAggregateStatus } from '@components/utils'
-import { StatusIcon } from '@ui'
+import type { ConsoleEntry, TestNode } from '~/components/types'
 import { createMemo, For, Show } from 'solid-js'
-import { ansiToHtml } from '../../utils/ansi'
+import { StatusIcon } from '~/components'
+import { formatDuration, getAggregateStatus } from '~/components/utils'
+import { ansiToHtml } from '~/utils/ansi'
 
 export interface TestDetailsProps {
   test: TestNode

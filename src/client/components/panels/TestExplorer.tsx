@@ -1,5 +1,5 @@
-import type { TestNode, TestSummary } from '@components/types'
 import type { Component } from 'solid-js'
+import type { TestNode, TestSummary } from '~/components/types'
 import { For, Show } from 'solid-js'
 import TestTreeItem from './TestTreeItem'
 

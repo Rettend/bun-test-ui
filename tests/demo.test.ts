@@ -19,6 +19,6 @@ describe('demo tests', () => {
   })
 
   test('slow test', async () => {
-    await Bun.sleep(10000)
+    await Bun.sleep(1000)
   })
 })

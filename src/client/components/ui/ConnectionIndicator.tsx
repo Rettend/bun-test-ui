@@ -1,5 +1,5 @@
-import type { ConnectionStatus } from '@components/types'
 import type { Component } from 'solid-js'
+import type { ConnectionStatus } from '~/components/types'
 
 export interface ConnectionIndicatorProps {
   status: ConnectionStatus

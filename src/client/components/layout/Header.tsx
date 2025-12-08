@@ -1,8 +1,8 @@
-import type { ConnectionStatus, RunPhase, TestSummary } from '@components/types'
 import type { Component } from 'solid-js'
-import { formatDuration } from '@components/utils'
-import { Button, ConnectionIndicator, HourglassSpinner } from '@ui'
+import type { ConnectionStatus, RunPhase, TestSummary } from '~/components/types'
 import { Show } from 'solid-js'
+import { Button, ConnectionIndicator, HourglassSpinner } from '~/components'
+import { formatDuration } from '~/components/utils'
 
 export type ActiveTab = 'dashboard' | 'coverage'
 

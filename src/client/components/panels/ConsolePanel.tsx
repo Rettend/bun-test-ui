@@ -1,5 +1,5 @@
-import type { ConsoleEntry } from '@components/types'
 import type { Component } from 'solid-js'
+import type { ConsoleEntry } from '~/components/types'
 import { For, Show } from 'solid-js'
 import ConsoleEntryItem from './ConsoleEntryItem'
 

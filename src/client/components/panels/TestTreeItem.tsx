@@ -1,8 +1,8 @@
-import type { TestNode, TestStatus } from '@components/types'
 import type { Component, JSX } from 'solid-js'
-import { formatDuration, getAggregateStatus } from '@components/utils'
-import { StatusIcon } from '@ui'
+import type { TestNode, TestStatus } from '~/components/types'
 import { createMemo, createSignal, For, Show } from 'solid-js'
+import { StatusIcon } from '~/components'
+import { formatDuration, getAggregateStatus } from '~/components/utils'
 
 export interface TestTreeItemProps {
   id: string

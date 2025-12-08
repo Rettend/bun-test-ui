@@ -1,6 +1,6 @@
-import type { TestStatus } from '@components/types'
 import type { Component } from 'solid-js'
-import { getStatusBadgeClass } from '@components/utils'
+import type { TestStatus } from '~/components/types'
+import { getStatusBadgeClass } from '~/components/utils'
 
 export interface StatusBadgeProps {
   status: TestStatus

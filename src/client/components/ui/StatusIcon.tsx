@@ -1,5 +1,5 @@
-import type { TestStatus } from '@components/types'
 import type { Component } from 'solid-js'
+import type { TestStatus } from '~/components/types'
 import { createMemo, Match, Switch } from 'solid-js'
 
 export interface StatusIconProps {
