@@ -3,9 +3,9 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { WebSocketInspector } from '@rttnd/bun-inspector-protocol'
 import { serve, spawn } from 'bun'
-import { c, log } from './log'
 import { TCPSocketSignal } from './signal'
-import { getFreePort } from './utils'
+import { c, log } from './utils/log'
+import { getFreePort } from './utils/server'
 import { createFileWatcher } from './watcher'
 
 const DIST_DIR = join(import.meta.dir, '..', '..', 'dist', 'client')

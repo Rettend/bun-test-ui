@@ -2,7 +2,7 @@ import type { WatchEventType } from 'node:fs'
 import { existsSync, watch } from 'node:fs'
 import { join, relative } from 'node:path'
 import process from 'node:process'
-import { c, log } from './log'
+import { c, log } from './utils/log'
 
 export interface FileWatcher {
   close: () => void

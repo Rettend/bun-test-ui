@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import process from 'node:process'
 import { getTestConfig } from './config'
-import { c, log } from './server/log'
+import { c, log } from './server/utils/log'
 
 async function openBrowser(url: string) {
   const { platform } = process

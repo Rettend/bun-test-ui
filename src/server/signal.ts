@@ -1,7 +1,7 @@
 import type { Socket } from 'node:net'
 import { EventEmitter } from 'node:events'
 import { createServer } from 'node:net'
-import { log } from './log'
+import { log } from './utils/log'
 
 export interface SignalEventMap {
   'Signal.listening': []
