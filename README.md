@@ -4,14 +4,7 @@ A visual test runner UI for Bun, similar to [Vitest UI](https://vitest.dev/guide
 
 ![bun-test-ui](https://img.shields.io/npm/v/bun-test-ui)
 
-## Features
-
-- **Auto-runs tests** when you open the UI
-- **Live updates** via WebSocket
-- **Watch mode** - auto-reruns tests when source or test files change
-- **Visual test explorer** with pass/fail/skip status
-- **Console output** per test
-- **Powered by Bun** - uses the inspector protocol
+![bun test ui ui](./docs/images/ui.png)
 
 ## Install
 
@@ -25,7 +18,7 @@ bun add -d bun-test-ui
 bunx bun-test-ui
 ```
 
-This starts the UI at `http://localhost:51205` and auto-opens your browser.
+This starts the UI at `http://localhost:51205` and auto-opens your system browser.
 
 ### Options
 
@@ -38,23 +31,7 @@ Options:
   --no-open            Don't auto-open browser
 ```
 
-### Examples
-
-```bash
-# Run all tests with watch mode (default)
-bunx bun-test-ui
-
-# Filter by pattern
-bunx bun-test-ui my-feature
-
-# Custom port
-bunx bun-test-ui --port 3000
-
-# Disable watch mode (single run)
-bunx bun-test-ui --no-watch
-```
-
-## Configuration
+## Config
 
 The CLI reads your `bunfig.toml` for test configuration:
 
@@ -63,32 +40,29 @@ The CLI reads your `bunfig.toml` for test configuration:
 root = "./tests"
 ```
 
-Watch mode (enabled by default) monitors both your test directory and `./src`:
+Watch mode watches the current directory:
 
 - **Test file changes** → Only that test file is re-run
 - **Source file changes** → All tests are re-run
 
+## How it works
+
+Uses [bun-inspector-protocol](https://github.com/oven-sh/bun/blob/main/packages/bun-inspector-protocol/README.md) to communicate with Bun's test runner via the WebSocket inspector, similar to how `bun-vscode` implements VS Code test runner support.
+
 ## Development
 
 ```bash
-# Clone the repo
-git clone https://github.com/rettend/bun-test-ui
-cd bun-test-ui
 bun install
 
 # Dev server with HMR
 bun run dev
 
-# Build UI assets
+# Build for prod
 bun run build
 
-# Run production CLI
+# Run prod CLI
 bun run start
 ```
-
-## How it works
-
-Uses [bun-inspector-protocol](https://github.com/oven-sh/bun/blob/main/packages/bun-inspector-protocol/README.md) to communicate with Bun's test runner via the WebSocket inspector, similar to how `bun-vscode` implements VS Code test runner support.
 
 ## License
 
