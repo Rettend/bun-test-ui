@@ -61,7 +61,7 @@ async function main() {
   log.info(c.cyan(`http://localhost:${config.port}`))
   log.info('')
 
-  await import('./server/index.js')
+  await import('./server/index.ts')
 
   const url = `http://localhost:${config.port}`
 
