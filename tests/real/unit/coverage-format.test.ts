@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatCoveragePct } from '../../src/client/components/panels/Coverage'
+import { formatCoveragePct } from '../../../src/client/components/panels/Coverage'
 
 describe('formatCoveragePct', () => {
   test('shows dash when metric is unavailable', () => {

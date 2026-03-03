@@ -43,9 +43,13 @@
     "src"
   ],
   "scripts": {
-    "dev": "BUN_TEST_UI_WATCH=1 bun --hot src/server/index.ts",
+    "dev": "BUN_TEST_UI_COVERAGE=1 BUN_TEST_UI_WATCH=1 BUN_TEST_UI_ROOT=./tests/demo bun --hot src/server/index.ts",
+    "dev:real": "BUN_TEST_UI_COVERAGE=1 BUN_TEST_UI_WATCH=1 BUN_TEST_UI_ROOT=./tests/real bun --hot src/server/index.ts",
     "build": "bun run build.ts",
     "start": "bun src/cli.ts",
+    "test": "bun test",
+    "test:real": "bun test ./tests/real",
+    "test:demo": "bun test ./tests/demo",
     "lint": "eslint . --fix",
     "check": "tsgo --noEmit -p tsconfig.json",
     "update": "taze latest -wr",

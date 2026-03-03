@@ -5,7 +5,7 @@ plugins = [
 ]
 
 [test]
-root = "./tests"
+root = "./tests/real"
 coverage = true
 preload = [ "./tests/setup/happy-dom.ts" ]
 coverageSkipTestFiles = true

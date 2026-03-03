@@ -69,6 +69,13 @@ export function createTestRunner(): TestRunner {
     connectWebSocket()
   })
 
+  if (typeof window !== 'undefined') {
+    queueMicrotask(() => {
+      if (!ws)
+        connectWebSocket()
+    })
+  }
+
   onCleanup(() => ws?.close())
 
   const summary = createMemo(() => {
@@ -91,6 +98,9 @@ export function createTestRunner(): TestRunner {
   const selectedTest = createMemo(() => (selectedId() ? tests[selectedId()!] : undefined))
 
   function connectWebSocket() {
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN))
+      return
+
     setConnection('connecting')
     ws = new WebSocket(`ws://${location.host}/ws`)
     ws.onopen = () => {

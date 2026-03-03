@@ -37,8 +37,13 @@ The CLI reads your `bunfig.toml` for test configuration:
 
 ```toml
 [test]
-root = "./tests"
+root = "./tests/real"
 ```
+
+For this repository:
+
+- `tests/demo` contains UI demo tests (including intentional failures)
+- `tests/real` contains the actual project test suite
 
 Watch mode watches the current directory:
 
@@ -56,6 +61,15 @@ bun install
 
 # Dev server with HMR
 bun run dev
+
+# Dev server against real tests
+bun run dev:real
+
+# Run real tests (default)
+bun test
+
+# Run demo tests (includes intentional failures)
+bun run test:demo
 
 # Build for prod
 bun run build

@@ -9,8 +9,24 @@ export interface CoverageProps {
   dir: string
 }
 
-function formatRatio(covered: number, total: number): string {
-  return `${covered}/${total}`
+function formatAverageLabel(fileCount: number): string {
+  return `Average of ${fileCount} file${fileCount === 1 ? '' : 's'}`
+}
+
+function normalizeMetricPct(covered: number, total: number, pct: number): number {
+  if (total <= 0)
+    return 100
+  if (covered <= 0)
+    return 0
+  return Number.isFinite(pct) ? pct : 0
+}
+
+function averagePct(values: number[]): number {
+  if (!values.length)
+    return 0
+
+  const sum = values.reduce((acc, value) => acc + value, 0)
+  return Number((sum / values.length).toFixed(1))
 }
 
 export function formatCoveragePct(covered: number, total: number, pct: number): string {
@@ -24,6 +40,18 @@ export function formatCoveragePct(covered: number, total: number, pct: number): 
 const Coverage: Component<CoverageProps> = (props) => {
   const totals = () => props.report?.totals
   const files = () => props.report?.files ?? []
+
+  const averageLinePct = () => averagePct(files().map(file => normalizeMetricPct(file.lines.covered, file.lines.total, file.lines.pct)))
+  const averageFunctionPct = () => averagePct(files().map(file => normalizeMetricPct(file.functions.covered, file.functions.total, file.functions.pct)))
+  const averageBranchPct = () => averagePct(files().map(file => normalizeMetricPct(file.branches.covered, file.branches.total, file.branches.pct)))
+
+  const hasBranchData = () => {
+    const summary = totals()
+    if (summary?.branches.total && summary.branches.total > 0)
+      return true
+
+    return files().some(file => file.branches.total > 0)
+  }
 
   return (
     <div class="p-6 flex flex-1 overflow-auto">
@@ -61,24 +89,35 @@ const Coverage: Component<CoverageProps> = (props) => {
                 </div>
               )}
             >
-              {summary => (
+              {_summary => (
                 <>
-                  <div class="gap-3 grid grid-cols-1 md:grid-cols-3">
-                    <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
-                      <p class="text-xs text-gray-500 tracking-wide uppercase">Lines</p>
-                      <p class="text-2xl text-gray-200 font-semibold mt-1">{formatCoveragePct(summary().lines.covered, summary().lines.total, summary().lines.pct)}</p>
-                      <p class="text-xs text-gray-500 mt-1">{formatRatio(summary().lines.covered, summary().lines.total)}</p>
-                    </div>
+                  <div class={`gap-3 grid grid-cols-1 ${hasBranchData() ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                     <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
                       <p class="text-xs text-gray-500 tracking-wide uppercase">Functions</p>
-                      <p class="text-2xl text-gray-200 font-semibold mt-1">{formatCoveragePct(summary().functions.covered, summary().functions.total, summary().functions.pct)}</p>
-                      <p class="text-xs text-gray-500 mt-1">{formatRatio(summary().functions.covered, summary().functions.total)}</p>
+                      <p class="text-2xl text-gray-200 font-semibold mt-1">
+                        {averageFunctionPct().toFixed(1)}
+                        %
+                      </p>
+                      <p class="text-xs text-gray-500 mt-1">{formatAverageLabel(files().length)}</p>
                     </div>
                     <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
-                      <p class="text-xs text-gray-500 tracking-wide uppercase">Branches</p>
-                      <p class="text-2xl text-gray-200 font-semibold mt-1">{formatCoveragePct(summary().branches.covered, summary().branches.total, summary().branches.pct)}</p>
-                      <p class="text-xs text-gray-500 mt-1">{formatRatio(summary().branches.covered, summary().branches.total)}</p>
+                      <p class="text-xs text-gray-500 tracking-wide uppercase">Lines</p>
+                      <p class="text-2xl text-gray-200 font-semibold mt-1">
+                        {averageLinePct().toFixed(1)}
+                        %
+                      </p>
+                      <p class="text-xs text-gray-500 mt-1">{formatAverageLabel(files().length)}</p>
                     </div>
+                    <Show when={hasBranchData()}>
+                      <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
+                        <p class="text-xs text-gray-500 tracking-wide uppercase">Branches</p>
+                        <p class="text-2xl text-gray-200 font-semibold mt-1">
+                          {averageBranchPct().toFixed(1)}
+                          %
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">{formatAverageLabel(files().length)}</p>
+                      </div>
+                    </Show>
                   </div>
 
                   <div class="border border-white/10 rounded-lg overflow-hidden">
@@ -94,20 +133,24 @@ const Coverage: Component<CoverageProps> = (props) => {
                     <div class="max-h-[36rem] overflow-auto divide-white/5 divide-y">
                       <For each={files()}>
                         {file => (
-                          <div class="text-xs px-4 py-2 gap-4 grid grid-cols-[1fr_auto_auto_auto] items-center">
+                          <div
+                            class={`text-xs px-4 py-2 gap-4 grid items-center ${hasBranchData() ? 'grid-cols-[1fr_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto]'}`}
+                          >
                             <span class="text-gray-300 font-mono truncate">{file.path}</span>
-                            <span class="text-gray-400 text-right min-w-18">
-                              L
-                              {formatCoveragePct(file.lines.covered, file.lines.total, file.lines.pct)}
-                            </span>
                             <span class="text-gray-400 text-right min-w-18">
                               F
                               {formatCoveragePct(file.functions.covered, file.functions.total, file.functions.pct)}
                             </span>
                             <span class="text-gray-400 text-right min-w-18">
-                              B
-                              {formatCoveragePct(file.branches.covered, file.branches.total, file.branches.pct)}
+                              L
+                              {formatCoveragePct(file.lines.covered, file.lines.total, file.lines.pct)}
                             </span>
+                            <Show when={hasBranchData()}>
+                              <span class="text-gray-400 text-right min-w-18">
+                                B
+                                {formatCoveragePct(file.branches.covered, file.branches.total, file.branches.pct)}
+                              </span>
+                            </Show>
                           </div>
                         )}
                       </For>
