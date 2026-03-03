@@ -1,6 +1,6 @@
-import type { Component, JSX } from 'solid-js'
+import type { Component, JSX } from 'solid-js/dist/solid.js'
 import type { TestNode, TestStatus } from '~/components/types'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js/dist/solid.js'
 import { StatusIcon } from '~/components'
 import { formatDuration, getAggregateStatus } from '~/components/utils'
 

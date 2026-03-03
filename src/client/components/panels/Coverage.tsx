@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js'
+import type { Component } from 'solid-js/dist/solid.js'
 import type { CoverageFile, CoverageReport, RunPhase } from '~/components/types'
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js/dist/solid.js'
 
 export interface CoverageProps {
   report: CoverageReport | null

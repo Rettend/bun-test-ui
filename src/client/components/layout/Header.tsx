@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js'
+import type { Component } from 'solid-js/dist/solid.js'
 import type { ConnectionStatus, RunPhase, TestSummary } from '~/components/types'
-import { Show } from 'solid-js'
+import { Show } from 'solid-js/dist/solid.js'
 import { Button, ConnectionIndicator, HourglassSpinner } from '~/components'
 import { formatDuration } from '~/components/utils'
 

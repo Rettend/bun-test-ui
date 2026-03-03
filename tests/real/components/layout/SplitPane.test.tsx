@@ -52,7 +52,6 @@ describe('SplitPane', () => {
     const root = container.firstElementChild as HTMLElement
     const leftPane = root.children[0] as HTMLElement
     const divider = root.children[1] as HTMLElement
-    console.log("divider:", divider.outerHTML)
 
     dispatchMouse(divider, 'mousedown', 240)
     dispatchMouse(document, 'mousemove', 140)
@@ -81,7 +80,6 @@ describe('SplitPane', () => {
     const root = container.firstElementChild as HTMLElement
     const leftPane = root.children[0] as HTMLElement
     const divider = root.children[1] as HTMLElement
-    console.log("divider:", divider.outerHTML)
 
     dispatchMouse(divider, 'mousedown', 300)
     dispatchMouse(document, 'mousemove', 500)

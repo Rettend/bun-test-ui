@@ -1,5 +1,5 @@
-import type { Component, JSX } from 'solid-js'
-import { createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import type { Component, JSX } from 'solid-js/dist/solid.js'
+import { createMemo, createSignal, onCleanup, onMount } from 'solid-js/dist/solid.js'
 
 export interface SplitPaneProps {
   left: JSX.Element

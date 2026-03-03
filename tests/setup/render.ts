@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js'
+import type { JSX } from 'solid-js/dist/solid.js'
 import { render as solidRender } from 'solid-js/web/dist/web.js'
 
 export function render(ui: () => JSX.Element) {
