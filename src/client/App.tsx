@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
 import type { ActiveTab } from '~/components/layout/Header'
-import { createSignal, Show } from 'solid-js/dist/solid.js'
+import { createSignal, Show } from 'solid-js'
 import { ConsolePanel, Coverage, Dashboard, Header, ProgressBar, SplitPane, TestDetails, TestExplorer } from '~/components'
 import { createTestRunner } from '~/runner'
 

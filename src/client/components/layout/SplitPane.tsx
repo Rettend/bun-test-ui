@@ -1,5 +1,5 @@
-import type { Component, JSX } from 'solid-js/dist/solid.js'
-import { createMemo, createSignal, onCleanup, onMount } from 'solid-js/dist/solid.js'
+import type { Component, JSX } from 'solid-js'
+import { createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 
 export interface SplitPaneProps {
   left: JSX.Element
@@ -30,6 +30,7 @@ const SplitPane: Component<SplitPaneProps> = (props) => {
   const [width, setWidth] = createSignal(getInitialWidth())
   const [isDragging, setIsDragging] = createSignal(false)
   let containerRef: HTMLDivElement | undefined
+  let leftPaneRef: HTMLDivElement | undefined
 
   const saveWidth = (w: number) => {
     if (props.storageKey)
@@ -50,6 +51,8 @@ const SplitPane: Component<SplitPaneProps> = (props) => {
     const clampedWidth = Math.max(minWidth(), Math.min(maxWidth(), newWidth))
 
     setWidth(clampedWidth)
+    if (leftPaneRef)
+      leftPaneRef.style.width = `${clampedWidth}px`
   }
 
   const handleMouseUp = () => {
@@ -62,6 +65,8 @@ const SplitPane: Component<SplitPaneProps> = (props) => {
   const handleDblClick = () => {
     const w = defaultWidth()
     setWidth(w)
+    if (leftPaneRef)
+      leftPaneRef.style.width = `${w}px`
     saveWidth(w)
   }
 
@@ -82,6 +87,7 @@ const SplitPane: Component<SplitPaneProps> = (props) => {
       classList={{ 'select-none': isDragging() }}
     >
       <div
+        ref={el => (leftPaneRef = el)}
         class="shrink-0 overflow-hidden"
         style={{ width: `${width()}px` }}
       >

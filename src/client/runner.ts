@@ -1,4 +1,4 @@
-import type { Accessor } from 'solid-js/dist/solid.js'
+import type { Accessor } from 'solid-js'
 import type { Store } from 'solid-js/store'
 import type {
   ConnectionStatus,
@@ -10,7 +10,7 @@ import type {
   TestStatus,
   TestSummary,
 } from '~/components'
-import { createMemo, createSignal, onCleanup, onMount } from 'solid-js/dist/solid.js'
+import { createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { stringifyArg } from '~/components'
 import { buildTestNamePattern, coerceElapsed, normalizeFilePath } from '~/utils/run'

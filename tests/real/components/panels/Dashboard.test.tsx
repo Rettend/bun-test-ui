@@ -18,7 +18,7 @@ function createSummary(overrides: Partial<TestSummary> = {}): TestSummary {
 
 describe('Dashboard', () => {
   test('renders empty state when no tests exist', () => {
-    const { unmount } = render(() => (
+    const { container, unmount } = render(() => (
       <Dashboard summary={createSummary()} phase="idle" />
     ))
 
@@ -37,7 +37,7 @@ describe('Dashboard', () => {
       duration: 1500, // 1.50s
     })
 
-    const { unmount } = render(() => (
+    const { container, unmount } = render(() => (
       <Dashboard summary={summary} phase="done" />
     ))
 
@@ -73,7 +73,7 @@ describe('Dashboard', () => {
       running: 2,
     })
 
-    const { unmount } = render(() => (
+    const { container, unmount } = render(() => (
       <Dashboard summary={summary} phase="running" />
     ))
 

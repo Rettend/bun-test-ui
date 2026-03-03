@@ -1,4 +1,4 @@
-import type { Component, JSX } from 'solid-js/dist/solid.js'
+import type { Component, JSX } from 'solid-js'
 
 export interface ButtonProps {
   children: JSX.Element

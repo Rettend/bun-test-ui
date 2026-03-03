@@ -1,4 +1,4 @@
-import type { Component } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
 
 export interface SummaryCardProps {
   icon: string
