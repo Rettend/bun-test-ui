@@ -42,17 +42,26 @@ export function buildTestNamePattern(paths: string[][]): string | undefined {
 }
 
 export function coerceElapsed(elapsed: unknown): number | undefined {
+  let value: number | undefined
+
   if (typeof elapsed === 'number') {
     if (Number.isFinite(elapsed))
-      return elapsed
-    return undefined
+      value = elapsed
   }
-  if (typeof elapsed === 'bigint')
-    return Number(elapsed)
-
-  if (typeof elapsed === 'string') {
+  else if (typeof elapsed === 'bigint') {
+    value = Number(elapsed)
+  }
+  else if (typeof elapsed === 'string') {
     const parsed = Number(elapsed)
-    return Number.isFinite(parsed) ? parsed : undefined
+    value = Number.isFinite(parsed) ? parsed : undefined
   }
-  return undefined
+
+  if (value == null || !Number.isFinite(value))
+    return undefined
+
+  if (value <= 0)
+    return 0
+
+  const milliseconds = value / 1_000_000
+  return Number.isFinite(milliseconds) ? milliseconds : undefined
 }

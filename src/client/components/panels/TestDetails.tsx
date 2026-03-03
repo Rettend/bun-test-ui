@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js'
+import type { Component } from 'solid-js/dist/solid.js'
 import type { ConsoleEntry, TestNode } from '~/components/types'
-import { createMemo, For, Show } from 'solid-js'
+import { createMemo, For, Show } from 'solid-js/dist/solid.js'
 import { StatusIcon } from '~/components'
 import { formatDuration, getAggregateStatus } from '~/components/utils'
 import { ansiToHtml } from '~/utils/ansi'
@@ -32,7 +32,7 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
   const fileLocation = createMemo(() => {
     if (!props.test.url)
       return null
-    const line = props.test.line !== undefined ? `:${props.test.line + 1}` : ''
+    const line = props.test.line !== undefined ? `:${props.test.line}` : ''
     return `${props.test.url}${line}`
   })
 

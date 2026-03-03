@@ -40,9 +40,7 @@ export function formatDuration(value?: number): string {
   if (typeof value !== 'number' || value <= 0)
     return '—'
 
-  let ms = value
-  if (value > 1_000_000)
-    ms = value / 1_000_000
+  const ms = value
 
   if (ms < 1)
     return '<1ms'

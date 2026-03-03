@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js'
+import type { Component } from 'solid-js/dist/solid.js'
 import type { ActiveTab } from '~/components/layout/Header'
-import { createSignal, Show } from 'solid-js'
+import { createSignal, Show } from 'solid-js/dist/solid.js'
 import { ConsolePanel, Coverage, Dashboard, Header, ProgressBar, SplitPane, TestDetails, TestExplorer } from '~/components'
 import { createTestRunner } from '~/runner'
 
@@ -44,7 +44,12 @@ const App: Component = () => {
               when={runner.selectedTest()}
               fallback={(
                 <Show when={activeTab() === 'coverage'} fallback={<Dashboard summary={runner.summary()} phase={runner.phase()} />}>
-                  <Coverage />
+                  <Coverage
+                    report={runner.coverage()}
+                    phase={runner.phase()}
+                    enabled={runner.coverageEnabled()}
+                    dir={runner.coverageDir()}
+                  />
                 </Show>
               )}
             >
