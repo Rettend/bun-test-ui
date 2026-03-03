@@ -13,6 +13,14 @@ function formatRatio(covered: number, total: number): string {
   return `${covered}/${total}`
 }
 
+export function formatCoveragePct(covered: number, total: number, pct: number): string {
+  if (total <= 0)
+    return '—'
+  if (covered <= 0)
+    return '0.0%'
+  return `${pct.toFixed(1)}%`
+}
+
 const Coverage: Component<CoverageProps> = (props) => {
   const totals = () => props.report?.totals
   const files = () => props.report?.files ?? []
@@ -58,26 +66,17 @@ const Coverage: Component<CoverageProps> = (props) => {
                   <div class="gap-3 grid grid-cols-1 md:grid-cols-3">
                     <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
                       <p class="text-xs text-gray-500 tracking-wide uppercase">Lines</p>
-                      <p class="text-2xl text-gray-200 font-semibold mt-1">
-                        {summary().lines.pct.toFixed(1)}
-                        %
-                      </p>
+                      <p class="text-2xl text-gray-200 font-semibold mt-1">{formatCoveragePct(summary().lines.covered, summary().lines.total, summary().lines.pct)}</p>
                       <p class="text-xs text-gray-500 mt-1">{formatRatio(summary().lines.covered, summary().lines.total)}</p>
                     </div>
                     <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
                       <p class="text-xs text-gray-500 tracking-wide uppercase">Functions</p>
-                      <p class="text-2xl text-gray-200 font-semibold mt-1">
-                        {summary().functions.pct.toFixed(1)}
-                        %
-                      </p>
+                      <p class="text-2xl text-gray-200 font-semibold mt-1">{formatCoveragePct(summary().functions.covered, summary().functions.total, summary().functions.pct)}</p>
                       <p class="text-xs text-gray-500 mt-1">{formatRatio(summary().functions.covered, summary().functions.total)}</p>
                     </div>
                     <div class="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
                       <p class="text-xs text-gray-500 tracking-wide uppercase">Branches</p>
-                      <p class="text-2xl text-gray-200 font-semibold mt-1">
-                        {summary().branches.pct.toFixed(1)}
-                        %
-                      </p>
+                      <p class="text-2xl text-gray-200 font-semibold mt-1">{formatCoveragePct(summary().branches.covered, summary().branches.total, summary().branches.pct)}</p>
                       <p class="text-xs text-gray-500 mt-1">{formatRatio(summary().branches.covered, summary().branches.total)}</p>
                     </div>
                   </div>
@@ -99,18 +98,15 @@ const Coverage: Component<CoverageProps> = (props) => {
                             <span class="text-gray-300 font-mono truncate">{file.path}</span>
                             <span class="text-gray-400 text-right min-w-18">
                               L
-                              {file.lines.pct.toFixed(1)}
-                              %
+                              {formatCoveragePct(file.lines.covered, file.lines.total, file.lines.pct)}
                             </span>
                             <span class="text-gray-400 text-right min-w-18">
                               F
-                              {file.functions.pct.toFixed(1)}
-                              %
+                              {formatCoveragePct(file.functions.covered, file.functions.total, file.functions.pct)}
                             </span>
                             <span class="text-gray-400 text-right min-w-18">
                               B
-                              {file.branches.pct.toFixed(1)}
-                              %
+                              {formatCoveragePct(file.branches.covered, file.branches.total, file.branches.pct)}
                             </span>
                           </div>
                         )}
