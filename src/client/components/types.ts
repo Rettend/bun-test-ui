@@ -39,6 +39,30 @@ export interface ConsolePayload {
   }
 }
 
+export interface CoverageMetric {
+  covered: number
+  total: number
+  pct: number
+}
+
+export interface CoverageFile {
+  path: string
+  lines: CoverageMetric
+  functions: CoverageMetric
+  branches: CoverageMetric
+}
+
+export interface CoverageReport {
+  enabled: boolean
+  dir: string
+  totals: {
+    lines: CoverageMetric
+    functions: CoverageMetric
+    branches: CoverageMetric
+  }
+  files: CoverageFile[]
+}
+
 export interface TestSummary {
   total: number
   passed: number

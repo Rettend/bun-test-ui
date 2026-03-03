@@ -1,6 +1,6 @@
 import type { ServerWebSocket, Subprocess } from 'bun'
 import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import process from 'node:process'
 import { WebSocketInspector } from '@rttnd/bun-inspector-protocol'
 import { serve, spawn } from 'bun'
@@ -17,6 +17,8 @@ const PORT = Number.parseInt(process.env.BUN_TEST_UI_PORT ?? '51205', 10)
 const TEST_ROOT = process.env.BUN_TEST_UI_ROOT ?? ''
 const TEST_PATTERN = process.env.BUN_TEST_UI_PATTERN ?? ''
 const WATCH_ENABLED = process.env.BUN_TEST_UI_WATCH === '1'
+const COVERAGE_ENABLED = process.env.BUN_TEST_UI_COVERAGE === '1'
+const COVERAGE_DIR = process.env.BUN_TEST_UI_COVERAGE_DIR ?? 'coverage'
 
 let devIndexHtml: any
 if (isDev) {
@@ -27,6 +29,7 @@ if (isDev) {
 interface RunRequest {
   files?: string[]
   testNamePattern?: string
+  requestId?: number
 }
 
 interface ServerState {
@@ -34,6 +37,7 @@ interface ServerState {
   process: Subprocess | null
   inspector: WebSocketInspector | null
   clients: Set<ServerWebSocket<unknown>>
+  activeRunId: number
 }
 
 const state: ServerState = {
@@ -41,12 +45,279 @@ const state: ServerState = {
   process: null,
   inspector: null,
   clients: new Set(),
+  activeRunId: 0,
+}
+
+let nextRunId = 0
+let runStartQueue: Promise<void> = Promise.resolve()
+
+interface CoverageMetric {
+  covered: number
+  total: number
+  pct: number
+}
+
+interface CoverageFile {
+  path: string
+  lines: CoverageMetric
+  functions: CoverageMetric
+  branches: CoverageMetric
+}
+
+interface CoverageReport {
+  enabled: boolean
+  dir: string
+  totals: {
+    lines: CoverageMetric
+    functions: CoverageMetric
+    branches: CoverageMetric
+  }
+  files: CoverageFile[]
 }
 
 function broadcast(msg: any) {
   const str = JSON.stringify(msg)
   for (const client of state.clients)
     client.send(str)
+}
+
+function isRunActive(runId: number): boolean {
+  return state.activeRunId === runId
+}
+
+function broadcastRun(runId: number, msg: Record<string, any>) {
+  if (!isRunActive(runId))
+    return
+  broadcast({ ...msg, runId })
+}
+
+function toPathKey(path?: string | null): string | null {
+  const normalized = normalizeFilePath(path ?? undefined)
+  return normalized ? normalized.replaceAll('\\', '/') : null
+}
+
+function stopCurrentRun() {
+  if (state.process) {
+    state.process.kill()
+    state.process = null
+  }
+
+  if (state.inspector) {
+    state.inspector.close()
+    state.inspector = null
+  }
+
+  if (state.signal) {
+    state.signal.close()
+    state.signal = null
+  }
+}
+
+function toCoverageMetric(covered: number, total: number): CoverageMetric {
+  const safeCovered = Math.max(0, covered)
+  const safeTotal = Math.max(0, total)
+  const pct = safeTotal > 0 ? Number(((safeCovered / safeTotal) * 100).toFixed(1)) : 0
+
+  return {
+    covered: safeCovered,
+    total: safeTotal,
+    pct,
+  }
+}
+
+function normalizeCoveragePath(filePath: string): string {
+  if (!filePath)
+    return filePath
+
+  const relativePath = relative(process.cwd(), filePath)
+  return (relativePath || filePath).replaceAll('\\', '/')
+}
+
+function parseLcov(content: string): CoverageReport {
+  const files: CoverageFile[] = []
+
+  let currentPath: string | null = null
+  let linesFound = 0
+  let linesHit = 0
+  let functionsFound = 0
+  let functionsHit = 0
+  let branchesFound = 0
+  let branchesHit = 0
+
+  let daFound = 0
+  let daHit = 0
+  let fndaFound = 0
+  let fndaHit = 0
+  let brdaFound = 0
+  let brdaHit = 0
+
+  const flush = () => {
+    if (!currentPath)
+      return
+
+    const effectiveLinesFound = linesFound > 0 ? linesFound : daFound
+    const effectiveLinesHit = linesFound > 0 ? linesHit : daHit
+    const effectiveFunctionsFound = functionsFound > 0 ? functionsFound : fndaFound
+    const effectiveFunctionsHit = functionsFound > 0 ? functionsHit : fndaHit
+    const effectiveBranchesFound = branchesFound > 0 ? branchesFound : brdaFound
+    const effectiveBranchesHit = branchesFound > 0 ? branchesHit : brdaHit
+
+    files.push({
+      path: normalizeCoveragePath(currentPath),
+      lines: toCoverageMetric(effectiveLinesHit, effectiveLinesFound),
+      functions: toCoverageMetric(effectiveFunctionsHit, effectiveFunctionsFound),
+      branches: toCoverageMetric(effectiveBranchesHit, effectiveBranchesFound),
+    })
+
+    currentPath = null
+    linesFound = 0
+    linesHit = 0
+    functionsFound = 0
+    functionsHit = 0
+    branchesFound = 0
+    branchesHit = 0
+    daFound = 0
+    daHit = 0
+    fndaFound = 0
+    fndaHit = 0
+    brdaFound = 0
+    brdaHit = 0
+  }
+
+  const lines = content.split(/\r?\n/)
+  for (const line of lines) {
+    if (!line)
+      continue
+
+    if (line.startsWith('SF:')) {
+      flush()
+      currentPath = line.slice(3).trim()
+      continue
+    }
+
+    if (line === 'end_of_record') {
+      flush()
+      continue
+    }
+
+    if (!currentPath)
+      continue
+
+    if (line.startsWith('LF:')) {
+      linesFound = Number.parseInt(line.slice(3), 10) || 0
+      continue
+    }
+    if (line.startsWith('LH:')) {
+      linesHit = Number.parseInt(line.slice(3), 10) || 0
+      continue
+    }
+    if (line.startsWith('FNF:')) {
+      functionsFound = Number.parseInt(line.slice(4), 10) || 0
+      continue
+    }
+    if (line.startsWith('FNH:')) {
+      functionsHit = Number.parseInt(line.slice(4), 10) || 0
+      continue
+    }
+    if (line.startsWith('BRF:')) {
+      branchesFound = Number.parseInt(line.slice(4), 10) || 0
+      continue
+    }
+    if (line.startsWith('BRH:')) {
+      branchesHit = Number.parseInt(line.slice(4), 10) || 0
+      continue
+    }
+
+    if (line.startsWith('DA:')) {
+      const [, hits] = line.slice(3).split(',', 2)
+      const hitCount = Number.parseInt(hits ?? '0', 10) || 0
+      daFound += 1
+      if (hitCount > 0)
+        daHit += 1
+      continue
+    }
+
+    if (line.startsWith('FNDA:')) {
+      const payload = line.slice(5)
+      const [hits] = payload.split(',', 1)
+      const hitCount = Number.parseInt(hits ?? '0', 10) || 0
+      fndaFound += 1
+      if (hitCount > 0)
+        fndaHit += 1
+      continue
+    }
+
+    if (line.startsWith('BRDA:')) {
+      const parts = line.slice(5).split(',')
+      const taken = parts[3]
+      brdaFound += 1
+      if (taken && taken !== '-' && (Number.parseInt(taken, 10) || 0) > 0)
+        brdaHit += 1
+    }
+  }
+
+  flush()
+  files.sort((a, b) => a.path.localeCompare(b.path))
+
+  const totals = files.reduce(
+    (acc, file) => {
+      acc.linesCovered += file.lines.covered
+      acc.linesTotal += file.lines.total
+      acc.functionsCovered += file.functions.covered
+      acc.functionsTotal += file.functions.total
+      acc.branchesCovered += file.branches.covered
+      acc.branchesTotal += file.branches.total
+      return acc
+    },
+    {
+      linesCovered: 0,
+      linesTotal: 0,
+      functionsCovered: 0,
+      functionsTotal: 0,
+      branchesCovered: 0,
+      branchesTotal: 0,
+    },
+  )
+
+  return {
+    enabled: COVERAGE_ENABLED,
+    dir: COVERAGE_DIR,
+    totals: {
+      lines: toCoverageMetric(totals.linesCovered, totals.linesTotal),
+      functions: toCoverageMetric(totals.functionsCovered, totals.functionsTotal),
+      branches: toCoverageMetric(totals.branchesCovered, totals.branchesTotal),
+    },
+    files,
+  }
+}
+
+async function readCoverageReport(): Promise<CoverageReport | null> {
+  if (!COVERAGE_ENABLED)
+    return null
+
+  const lcovPath = join(process.cwd(), COVERAGE_DIR, 'lcov.info')
+  const lcovFile = Bun.file(lcovPath)
+  if (!(await lcovFile.exists())) {
+    return {
+      enabled: true,
+      dir: COVERAGE_DIR,
+      totals: {
+        lines: toCoverageMetric(0, 0),
+        functions: toCoverageMetric(0, 0),
+        branches: toCoverageMetric(0, 0),
+      },
+      files: [],
+    }
+  }
+
+  try {
+    const lcovContent = await lcovFile.text()
+    return parseLcov(lcovContent)
+  }
+  catch (error) {
+    log.debug('Failed to parse coverage report', error)
+    return null
+  }
 }
 
 function normalizeFilePath(path?: string): string | null {
@@ -66,22 +337,21 @@ function normalizeFilePath(path?: string): string | null {
   return path
 }
 
-async function startTestRun(request?: RunRequest) {
-  if (state.process) {
-    state.process.kill()
-    state.process = null
-  }
-  if (state.inspector)
-    state.inspector.close()
-  state.inspector = null
-  if (state.signal)
-    state.signal.close()
+async function startTestRun(runId: number, request?: RunRequest) {
+  stopCurrentRun()
+  state.activeRunId = runId
 
   const inspectorPort = await getFreePort()
   const inspectorUrl = `ws://127.0.0.1:${inspectorPort}/${Math.random().toString(36).slice(2)}`
   const signalPort = await getFreePort()
-  state.signal = new TCPSocketSignal(signalPort)
-  await state.signal.ready
+  const signal = new TCPSocketSignal(signalPort)
+  state.signal = signal
+  await signal.ready
+
+  if (!isRunActive(runId)) {
+    signal.close()
+    return
+  }
 
   const inspector = new WebSocketInspector(inspectorUrl)
   state.inspector = inspector
@@ -91,26 +361,123 @@ async function startTestRun(request?: RunRequest) {
     closed: false,
   }
 
+  const testsByFile = new Map<string, Array<{ id: number, line: number }>>()
   let currentTestId: number | null = null
 
-  inspector.on('TestReporter.found', (params: unknown) => {
-    broadcast({ type: 'found', data: params })
+  broadcastRun(runId, {
+    type: 'run-start',
+    requestId: request?.requestId ?? null,
+    filtered: Boolean(request?.files?.length || request?.testNamePattern),
+    coverageEnabled: COVERAGE_ENABLED,
+    coverageDir: COVERAGE_DIR,
   })
+
+  const indexFoundTest = (params: any) => {
+    if (params?.type !== 'test')
+      return
+
+    const testId = typeof params?.id === 'number' ? params.id : Number(params?.id)
+    const testLine = typeof params?.line === 'number' ? params.line : Number(params?.line)
+    const pathKey = toPathKey(params?.url)
+
+    if (!pathKey || !Number.isFinite(testId) || !Number.isFinite(testLine) || testLine <= 0)
+      return
+
+    const items = testsByFile.get(pathKey) ?? []
+    if (!items.some(item => item.id === testId)) {
+      items.push({ id: testId, line: testLine })
+      items.sort((a, b) => a.line - b.line)
+      testsByFile.set(pathKey, items)
+    }
+  }
+
+  const resolveErrorSource = (params: any): { url?: string, line?: number, column?: number } => {
+    const urls: string[] = Array.isArray(params?.urls) ? params.urls : []
+    const lineColumns: number[] = Array.isArray(params?.lineColumns) ? params.lineColumns : []
+
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i]
+      if (!url)
+        continue
+
+      const line = Number(lineColumns[i * 2] ?? 0)
+      const column = Number(lineColumns[i * 2 + 1] ?? 0)
+
+      return {
+        url,
+        line: line > 0 ? line : undefined,
+        column: column > 0 ? column : undefined,
+      }
+    }
+
+    return {}
+  }
+
+  const resolveTestIdFromSource = (url?: string, line?: number): number | null => {
+    const pathKey = toPathKey(url)
+    if (!pathKey)
+      return null
+
+    const candidates = testsByFile.get(pathKey)
+    if (!candidates?.length)
+      return null
+
+    if (!line || line <= 0)
+      return candidates[candidates.length - 1]!.id
+
+    let bestCandidate: { id: number, line: number } | null = null
+
+    for (const candidate of candidates) {
+      if (candidate.line <= line && (!bestCandidate || candidate.line >= bestCandidate.line))
+        bestCandidate = candidate
+    }
+
+    return (bestCandidate ?? candidates[candidates.length - 1])?.id ?? null
+  }
+
+  inspector.on('TestReporter.found', (params: any) => {
+    if (!isRunActive(runId))
+      return
+
+    indexFoundTest(params)
+    broadcastRun(runId, { type: 'found', data: params })
+  })
+
   inspector.on('TestReporter.start', (params: any) => {
-    currentTestId = params?.id ?? null
-    broadcast({ type: 'start', data: params })
+    if (!isRunActive(runId))
+      return
+
+    currentTestId = typeof params?.id === 'number' ? params.id : Number(params?.id)
+    if (!Number.isFinite(currentTestId))
+      currentTestId = null
+
+    broadcastRun(runId, { type: 'start', data: params })
   })
+
   inspector.on('TestReporter.end', (params: any) => {
-    currentTestId = null
-    broadcast({ type: 'end', data: params })
+    if (!isRunActive(runId))
+      return
+
+    const endedId = typeof params?.id === 'number' ? params.id : Number(params?.id)
+    if (currentTestId != null && Number.isFinite(endedId) && currentTestId === endedId)
+      currentTestId = null
+
+    broadcastRun(runId, { type: 'end', data: params })
   })
+
   inspector.on('Runtime.consoleAPICalled', (params: any) => {
-    broadcast({ type: 'console', data: params })
+    if (!isRunActive(runId))
+      return
+
+    broadcastRun(runId, { type: 'console', data: params })
   })
 
   inspector.on('LifecycleReporter.error', (params: any) => {
-    const urls: string[] = params?.urls ?? []
-    const lineColumns: number[] = params?.lineColumns ?? []
+    if (!isRunActive(runId))
+      return
+
+    const urls: string[] = Array.isArray(params?.urls) ? params.urls : []
+    const lineColumns: number[] = Array.isArray(params?.lineColumns) ? params.lineColumns : []
 
     const stackLines: string[] = []
     for (let i = 0; i < urls.length; i++) {
@@ -126,16 +493,20 @@ async function startTestRun(request?: RunRequest) {
         stackLines.push(`    at ${url}`)
     }
 
+    const source = resolveErrorSource(params)
+    const resolvedTestId = currentTestId ?? resolveTestIdFromSource(source.url, source.line)
+
     const errorName = params?.name ?? 'Error'
     const rawMessage = params?.message ?? 'Unknown error'
     const stackTrace = stackLines.length > 0 ? `\n\n${stackLines.join('\n')}` : ''
     const errorMessage = `${errorName}: ${rawMessage}${stackTrace}`
 
-    broadcast({
+    broadcastRun(runId, {
       type: 'error',
       data: {
-        testId: currentTestId,
+        testId: resolvedTestId,
         message: errorMessage,
+        source,
       },
     })
   })
@@ -143,16 +514,19 @@ async function startTestRun(request?: RunRequest) {
   let inspectorConnecting = false
   let inspectorReady = false
   const tryConnectInspector = async () => {
-    if (connectState.closed || inspectorReady || inspectorConnecting)
+    if (!isRunActive(runId) || connectState.closed || inspectorReady || inspectorConnecting)
       return
+
     if (connectState.attempts >= connectState.maxAttempts) {
       log.debug('Inspector connect giving up after attempts', connectState.attempts)
       connectState.closed = true
       return
     }
+
     connectState.attempts += 1
     inspectorConnecting = true
     log.debug('Connecting to inspector...')
+
     try {
       const ok = await inspector.start(inspectorUrl)
       if (!ok)
@@ -172,9 +546,12 @@ async function startTestRun(request?: RunRequest) {
     catch (error) {
       inspectorConnecting = false
       log.debug('Inspector init failed, retrying...', error)
-      setTimeout(tryConnectInspector, 300)
+      setTimeout(() => {
+        void tryConnectInspector()
+      }, 300)
       return
     }
+
     inspectorConnecting = false
   }
 
@@ -192,9 +569,13 @@ async function startTestRun(request?: RunRequest) {
     log.debug('Inspector error', error)
   })
 
-  state.signal.on('Signal.Socket.connect', tryConnectInspector)
-  state.signal.on('Signal.received', tryConnectInspector)
-  state.signal.on('Signal.error', error => log.debug('Inspector signal error', error))
+  signal.on('Signal.Socket.connect', () => {
+    void tryConnectInspector()
+  })
+  signal.on('Signal.received', () => {
+    void tryConnectInspector()
+  })
+  signal.on('Signal.error', error => log.debug('Inspector signal error', error))
 
   const requestedFiles = Array.from(
     new Set((request?.files ?? []).map(normalizeFilePath).filter(Boolean) as string[]),
@@ -213,7 +594,10 @@ async function startTestRun(request?: RunRequest) {
   if (request?.testNamePattern)
     testCmd.push('--test-name-pattern', request.testNamePattern)
 
-  state.process = spawn({
+  if (COVERAGE_ENABLED)
+    testCmd.push('--coverage', '--coverage-reporter=text', '--coverage-reporter=lcov', '--coverage-dir', COVERAGE_DIR)
+
+  const child = spawn({
     cmd: testCmd,
     stdout: 'pipe',
     stderr: 'pipe',
@@ -221,32 +605,77 @@ async function startTestRun(request?: RunRequest) {
       ...process.env,
       FORCE_COLOR: '1',
       BUN_INSPECT: `${inspectorUrl}?wait=1`,
-      BUN_INSPECT_NOTIFY: state.signal.url,
+      BUN_INSPECT_NOTIFY: signal.url,
     },
   })
 
-  state.process.exited?.then((code) => {
-    connectState.closed = true
-    broadcast({ type: 'exit', code })
-  }).catch(() => {})
+  state.process = child
 
-  async function streamOutput(reader: any, type: 'stdout' | 'stderr') {
+  child.exited?.then(async (code) => {
+    connectState.closed = true
+
+    const coverage = await readCoverageReport()
+    broadcastRun(runId, { type: 'coverage', data: coverage })
+    broadcastRun(runId, { type: 'exit', code })
+
+    if (state.process === child)
+      state.process = null
+
+    if (state.inspector === inspector) {
+      state.inspector = null
+      inspector.close()
+    }
+
+    if (state.signal === signal) {
+      state.signal = null
+      signal.close()
+    }
+  }).catch((error) => {
+    log.debug('Test process exit handler failed', error)
+  })
+
+  async function streamOutput(reader: ReadableStreamDefaultReader<Uint8Array>, type: 'stdout' | 'stderr') {
     const decoder = new TextDecoder()
     const output = type === 'stdout' ? process.stdout : process.stderr
+
     while (true) {
       const { done, value } = await reader.read()
       if (done)
         break
+
       const text = decoder.decode(value)
       output.write(text)
-      broadcast({ type: 'output', stream: type, data: text })
+      broadcastRun(runId, { type: 'output', stream: type, data: text })
     }
   }
 
-  if (state.process.stdout && typeof state.process.stdout !== 'number')
-    streamOutput(state.process.stdout.getReader(), 'stdout').catch(() => {})
-  if (state.process.stderr && typeof state.process.stderr !== 'number')
-    streamOutput(state.process.stderr.getReader(), 'stderr').catch(() => {})
+  if (child.stdout && typeof child.stdout !== 'number')
+    streamOutput(child.stdout.getReader(), 'stdout').catch(() => {})
+  if (child.stderr && typeof child.stderr !== 'number')
+    streamOutput(child.stderr.getReader(), 'stderr').catch(() => {})
+}
+
+function queueTestRun(request?: RunRequest) {
+  const runId = ++nextRunId
+
+  runStartQueue = runStartQueue
+    .catch(() => {})
+    .then(() => startTestRun(runId, request))
+    .catch((error) => {
+      log.error('Failed to start test run:', error)
+      if (state.activeRunId === runId) {
+        broadcast({
+          type: 'run-start',
+          runId,
+          requestId: request?.requestId ?? null,
+          filtered: Boolean(request?.files?.length || request?.testNamePattern),
+          coverageEnabled: COVERAGE_ENABLED,
+          coverageDir: COVERAGE_DIR,
+        })
+        broadcast({ type: 'coverage', runId, data: null })
+        broadcast({ type: 'exit', code: 1, runId })
+      }
+    })
 }
 
 serve({
@@ -296,7 +725,11 @@ serve({
           const testNamePattern = typeof data.testNamePattern === 'string' && data.testNamePattern.trim()
             ? data.testNamePattern
             : undefined
-          startTestRun({ files, testNamePattern })
+          const requestId = typeof data.requestId === 'number' && Number.isInteger(data.requestId)
+            ? data.requestId
+            : undefined
+
+          queueTestRun({ files, testNamePattern, requestId })
         }
       }
       catch {
@@ -324,6 +757,9 @@ if (WATCH_ENABLED) {
   try {
     const entries = await readdir(process.cwd(), { withFileTypes: true })
     const ignored = new Set(['node_modules', '.git', '.idea', '.vscode', '.next', 'dist', 'build', 'out', 'coverage'])
+    const coverageRoot = COVERAGE_DIR.split(/[\\/]/).filter(Boolean)[0]
+    if (coverageRoot)
+      ignored.add(coverageRoot)
 
     for (const entry of entries) {
       if (ignored.has(entry.name) || (entry.name.startsWith('.') && entry.isDirectory()))

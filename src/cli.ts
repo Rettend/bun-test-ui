@@ -29,6 +29,8 @@ async function main() {
   let testPattern = ''
   let noOpen = false
   let noWatch = false
+  let coverage = true
+  let coverageDir: string | undefined
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
@@ -38,6 +40,10 @@ async function main() {
       noOpen = true
     else if (arg === '--no-watch')
       noWatch = true
+    else if (arg === '--no-coverage')
+      coverage = false
+    else if (arg === '--coverage-dir')
+      coverageDir = args[++i]
     else if (!arg.startsWith('-'))
       testPattern = arg
   }
@@ -47,6 +53,8 @@ async function main() {
     testPattern,
     open: !noOpen,
     watch: !noWatch,
+    coverage,
+    coverageDir,
   })
 
   process.env.NODE_ENV = 'production'
@@ -55,6 +63,8 @@ async function main() {
   process.env.BUN_TEST_UI_PATTERN = config.testPattern
   process.env.BUN_TEST_UI_WATCH = config.watch ? '1' : ''
   process.env.BUN_TEST_UI_PRELOAD = JSON.stringify(config.preload)
+  process.env.BUN_TEST_UI_COVERAGE = config.coverage ? '1' : ''
+  process.env.BUN_TEST_UI_COVERAGE_DIR = config.coverageDir
 
   log.info(`${c.bold('bun test ui')} ${c.dim('v0.1')}`)
   log.info('')

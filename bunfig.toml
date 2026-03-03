@@ -6,3 +6,4 @@ plugins = [
 
 [test]
 root = "./tests"
+coverage = true

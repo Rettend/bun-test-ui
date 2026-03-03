@@ -1,6 +1,15 @@
 import type { Accessor } from 'solid-js'
 import type { Store } from 'solid-js/store'
-import type { ConnectionStatus, ConsoleEntry, ConsolePayload, RunPhase, TestNode, TestStatus, TestSummary } from '~/components'
+import type {
+  ConnectionStatus,
+  ConsoleEntry,
+  ConsolePayload,
+  CoverageReport,
+  RunPhase,
+  TestNode,
+  TestStatus,
+  TestSummary,
+} from '~/components'
 import { createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { stringifyArg } from '~/components'
@@ -22,6 +31,9 @@ export interface TestRunner {
   phase: Accessor<RunPhase>
   runDuration: Accessor<number>
   summary: Accessor<TestSummary>
+  coverage: Accessor<CoverageReport | null>
+  coverageEnabled: Accessor<boolean>
+  coverageDir: Accessor<string>
   selectedTest: Accessor<TestNode | undefined>
   setSelectedId: (id: string | null) => void
   runTests: (options?: RunOptions) => void
@@ -37,14 +49,21 @@ export function createTestRunner(): TestRunner {
   const [connection, setConnection] = createSignal<ConnectionStatus>('connecting')
   const [phase, setPhase] = createSignal<RunPhase>('idle')
   const [runDuration, setRunDuration] = createSignal(0)
+  const [coverage, setCoverage] = createSignal<CoverageReport | null>(null)
+  const [coverageEnabled, setCoverageEnabled] = createSignal(false)
+  const [coverageDir, setCoverageDir] = createSignal('coverage')
 
   let ws: WebSocket | null = null
   let consoleId = 0
   let runStartedAt = 0
   let activeTestId: string | null = null
+  let activeRunId: number | null = null
+  let nextRequestId = 0
+  let pendingRequestId: number | null = null
+  let currentRunResetState = true
   const inspectorIdMap = new Map<string, string>()
-  let isFilteredRun = false
-  const targetedTestIds = new Set<string>()
+  const currentRunFoundIds = new Set<string>()
+  const currentRunTargetIds = new Set<string>()
 
   onMount(() => {
     connectWebSocket()
@@ -53,14 +72,14 @@ export function createTestRunner(): TestRunner {
   onCleanup(() => ws?.close())
 
   const summary = createMemo(() => {
-    const all = Object.values(tests).filter((t): t is TestNode => Boolean(t))
-    const passed = all.filter(t => t.status === 'passed').length
-    const failed = all.filter(t => t.status === 'failed' || t.status === 'timeout').length
-    const skipped = all.filter(t => t.status === 'skipped' || t.status === 'todo').length
-    const running = all.filter(t => t.status === 'running').length
+    const allTests = Object.values(tests).filter((t): t is TestNode => Boolean(t) && t.type === 'test')
+    const passed = allTests.filter(t => t.status === 'passed').length
+    const failed = allTests.filter(t => t.status === 'failed' || t.status === 'timeout').length
+    const skipped = allTests.filter(t => t.status === 'skipped' || t.status === 'todo').length
+    const running = allTests.filter(t => t.status === 'running').length
     const duration = runDuration() || (runStartedAt ? performance.now() - runStartedAt : 0)
     return {
-      total: all.length,
+      total: allTests.length,
       passed,
       failed,
       skipped,
@@ -93,36 +112,110 @@ export function createTestRunner(): TestRunner {
     }
   }
 
+  const runScopedMessageTypes = new Set([
+    'run-start',
+    'found',
+    'start',
+    'end',
+    'output',
+    'console',
+    'error',
+    'coverage',
+    'exit',
+  ])
+
+  function isRunScopedMessage(type: unknown): boolean {
+    return typeof type === 'string' && runScopedMessageTypes.has(type)
+  }
+
+  function parseRunId(value: unknown): number | null {
+    const runId = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(runId) ? runId : null
+  }
+
+  function shouldHandleRunMessage(msg: any): boolean {
+    const runId = parseRunId(msg?.runId)
+    if (runId == null)
+      return false
+
+    if (msg?.type === 'run-start') {
+      if (pendingRequestId != null) {
+        const messageRequestId = typeof msg?.requestId === 'number' ? msg.requestId : Number(msg?.requestId)
+        if (!Number.isFinite(messageRequestId) || messageRequestId !== pendingRequestId)
+          return false
+      }
+      return true
+    }
+
+    if (pendingRequestId != null)
+      return false
+
+    return activeRunId === runId
+  }
+
   function handleMessage(msg: any) {
+    if (isRunScopedMessage(msg?.type) && !shouldHandleRunMessage(msg))
+      return
+
     switch (msg.type) {
+      case 'run-start': {
+        const runId = parseRunId(msg.runId)
+        if (runId == null)
+          break
+
+        activeRunId = runId
+        pendingRequestId = null
+        activeTestId = null
+        inspectorIdMap.clear()
+        currentRunFoundIds.clear()
+        setPhase('running')
+        setRunDuration(0)
+        runStartedAt = performance.now()
+        setCoverage(null)
+        setCoverageEnabled(Boolean(msg.coverageEnabled))
+
+        if (typeof msg.filtered === 'boolean')
+          currentRunResetState = !msg.filtered
+
+        if (typeof msg.coverageDir === 'string' && msg.coverageDir.trim())
+          setCoverageDir(msg.coverageDir)
+
+        break
+      }
       case 'found': {
         ensureRunTimer()
         const { id, name, type, parentId, url, line } = msg.data
         const inspectorId = String(id)
         const inspectorParentId = parentId != null ? String(parentId) : undefined
+        const parentStableId = inspectorParentId
+          ? (inspectorIdMap.get(inspectorParentId) ?? (currentRunResetState ? inspectorParentId : undefined))
+          : undefined
 
-        if (isFilteredRun) {
-          const parentStableId = inspectorParentId ? inspectorIdMap.get(inspectorParentId) : undefined
-          const stableId = findExistingNodeId(name, type, url, parentStableId)
+        let stableId = inspectorId
 
-          if (stableId) {
-            inspectorIdMap.set(inspectorId, stableId)
-            setTests(stableId as any, node => ({
-              ...node,
-              url: url ?? node.url,
-              line: line ?? node.line,
-            }))
-          }
-          else {
-            inspectorIdMap.set(inspectorId, inspectorId)
-            createNewNode(inspectorId, name, type, url, line, parentStableId)
-          }
+        if (!currentRunResetState) {
+          const existing = findExistingNodeId(name, type, url, parentStableId)
+          if (existing)
+            stableId = existing
+        }
+
+        inspectorIdMap.set(inspectorId, stableId)
+        currentRunFoundIds.add(stableId)
+
+        if (tests[stableId]) {
+          setTests(stableId as any, node => ({
+            ...node,
+            name,
+            type,
+            parentId: parentStableId,
+            url: url ?? node.url,
+            line: line ?? node.line,
+          }))
         }
         else {
-          inspectorIdMap.set(inspectorId, inspectorId)
-          const parentNodeId = inspectorParentId
-          createNewNode(inspectorId, name, type, url, line, parentNodeId)
+          createNewNode(stableId, name, type, url, line, parentStableId)
         }
+
         break
       }
       case 'start': {
@@ -145,12 +238,13 @@ export function createTestRunner(): TestRunner {
         const inspectorId = String(id)
         const stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
         const existingNode = tests[stableId]
+        const isFilteredRun = !currentRunResetState
 
         if (isFilteredRun && existingNode?.type === 'describe')
           break
 
         const isSkipStatus = status === 'skip' || status === 'skipped_because_label'
-        if (isFilteredRun && isSkipStatus && !targetedTestIds.has(stableId))
+        if (isFilteredRun && isSkipStatus && !currentRunTargetIds.has(stableId))
           break
 
         const mappedStatus: TestStatus = status === 'pass'
@@ -190,15 +284,32 @@ export function createTestRunner(): TestRunner {
         break
       }
       case 'error': {
-        const { testId, message } = msg.data
+        const { testId, message, source } = msg.data ?? {}
+
+        let stableId: string | undefined
         if (testId != null) {
           const inspectorId = String(testId)
-          const stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
-          setTests(stableId as any, test => ({
-            ...(test ?? { id: stableId, name: `Test ${stableId}`, type: 'test', status: 'idle', children: [] }),
-            error: message ?? test?.error,
-          }))
+          stableId = inspectorIdMap.get(inspectorId) ?? inspectorId
         }
+
+        if (!stableId) {
+          stableId = resolveTestIdFromSource(source?.url, source?.line)
+            ?? activeTestId
+            ?? undefined
+        }
+
+        if (!stableId)
+          break
+
+        setTests(stableId as any, test => ({
+          ...(test ?? { id: stableId!, name: `Test ${stableId}`, type: 'test', status: 'idle', children: [] }),
+          error: message ?? test?.error,
+        }))
+
+        break
+      }
+      case 'coverage': {
+        setCoverage((msg.data as CoverageReport | null) ?? null)
         break
       }
       case 'exit': {
@@ -207,7 +318,15 @@ export function createTestRunner(): TestRunner {
           runStartedAt = 0
         }
         activeTestId = null
+        activeRunId = null
+        pendingRequestId = null
         setPhase('done')
+
+        if (currentRunResetState)
+          pruneMissingNodes(currentRunFoundIds)
+
+        currentRunFoundIds.clear()
+        currentRunTargetIds.clear()
         break
       }
       case 'file-changed': {
@@ -221,31 +340,19 @@ export function createTestRunner(): TestRunner {
           })
 
           if (fileRootId) {
-            const selection = collectLeafTests(fileRootId)
+            const targetIds = Array.from(collectSubtreeIds([fileRootId]))
 
-            if (selection.length > 0) {
-              const files = Array.from(new Set(selection.map(test => test.file).filter(Boolean))) as string[]
-              const pattern = buildTestNamePattern(selection.map(test => test.path))
-              const targetIds = selection.map(test => test.id)
-
-              runTests({
-                files: files.length ? files : undefined,
-                testNamePattern: pattern,
-                resetState: false,
-                targetIds,
-              })
-            }
-            else {
-              const node = tests[fileRootId]
-              runTests({
-                files: changedPath ? [changedPath] : undefined,
-                resetState: false,
-                targetIds: node ? [node.id] : [],
-              })
-            }
+            runTests({
+              files: changedPath ? [changedPath] : undefined,
+              resetState: false,
+              targetIds,
+            })
           }
           else {
-            runTests()
+            runTests({
+              files: [changedPath],
+              resetState: false,
+            })
           }
         }
         else {
@@ -256,14 +363,162 @@ export function createTestRunner(): TestRunner {
     }
   }
 
-  function createNewNode(nodeId: string, name: string, type: 'test' | 'describe', url?: string, line?: number, parentId?: string) {
-    const addAsRoot = !parentId && !roots().includes(nodeId)
+  function recomputeRoots() {
+    const nextRoots: string[] = []
+
+    for (const [id, node] of Object.entries(tests)) {
+      if (!node)
+        continue
+
+      if (!node.parentId || !tests[node.parentId])
+        nextRoots.push(id)
+    }
+
+    setRoots(nextRoots)
+  }
+
+  function collectSubtreeIds(startIds: string[]): Set<string> {
+    const visited = new Set<string>()
+    const queue = [...startIds]
+
+    while (queue.length) {
+      const id = queue.pop()!
+      if (visited.has(id))
+        continue
+
+      const node = tests[id]
+      if (!node)
+        continue
+
+      visited.add(id)
+
+      for (const childId of node.children)
+        queue.push(childId)
+    }
+
+    return visited
+  }
+
+  function resetNodesForRun(options: { resetAll: boolean, targetIds?: string[] }) {
+    const resetAll = options.resetAll
+    const targetScope = options.targetIds?.length ? collectSubtreeIds(options.targetIds) : null
 
     setTests(produce((state) => {
-      if (!state[nodeId])
+      for (const id in state) {
+        const node = state[id]
+        if (!node)
+          continue
+
+        if (node.status === 'running') {
+          node.status = 'idle'
+          node.startedAt = undefined
+        }
+
+        if (!resetAll && targetScope && !targetScope.has(id))
+          continue
+
+        if (resetAll || targetScope) {
+          node.status = 'idle'
+          node.duration = undefined
+          node.error = undefined
+          node.startedAt = undefined
+        }
+      }
+    }))
+  }
+
+  function pruneMissingNodes(foundIds: Set<string>) {
+    setTests(produce((state) => {
+      for (const id in state) {
+        if (!foundIds.has(id))
+          delete state[id]
+      }
+
+      for (const id in state) {
+        const node = state[id]
+        if (!node)
+          continue
+
+        node.children = node.children.filter(childId => Boolean(state[childId]))
+        if (node.parentId && !state[node.parentId])
+          node.parentId = undefined
+      }
+    }))
+
+    const selected = selectedId()
+    if (selected && !foundIds.has(selected))
+      setSelectedId(null)
+
+    recomputeRoots()
+  }
+
+  function resolveTestIdFromSource(url?: string, line?: number): string | undefined {
+    const normalizedSource = normalizeFilePath(url)
+    if (!normalizedSource)
+      return undefined
+
+    const sourceLine = typeof line === 'number' && Number.isFinite(line) ? line : undefined
+    const candidates = Object.values(tests).filter((test): test is TestNode => {
+      if (!test || test.type !== 'test')
+        return false
+      return normalizeFilePath(test.url) === normalizedSource
+    })
+
+    if (!candidates.length)
+      return undefined
+
+    const runningCandidate = candidates.find(test => test.status === 'running')
+    if (runningCandidate)
+      return runningCandidate.id
+
+    if (sourceLine != null) {
+      let bestMatch: TestNode | undefined
+
+      for (const candidate of candidates) {
+        if (candidate.line == null || candidate.line > sourceLine)
+          continue
+
+        if (!bestMatch || (bestMatch.line ?? 0) < candidate.line)
+          bestMatch = candidate
+      }
+
+      if (bestMatch)
+        return bestMatch.id
+
+      const sortedByDistance = [...candidates].sort((a, b) => {
+        const lineA = a.line ?? Number.POSITIVE_INFINITY
+        const lineB = b.line ?? Number.POSITIVE_INFINITY
+        return Math.abs(lineA - sourceLine) - Math.abs(lineB - sourceLine)
+      })
+
+      return sortedByDistance[0]?.id
+    }
+
+    return candidates[0]?.id
+  }
+
+  function createNewNode(nodeId: string, name: string, type: 'test' | 'describe', url?: string, line?: number, parentId?: string) {
+    setTests(produce((state) => {
+      const existingNode = state[nodeId]
+      const previousParentId = existingNode?.parentId
+
+      if (!state[nodeId]) {
         state[nodeId] = { id: nodeId, name, type, parentId, url, line, status: 'idle', children: [] }
-      else
-        state[nodeId] = { ...state[nodeId], name, type, parentId, url, line }
+      }
+      else {
+        const currentNode = existingNode!
+        state[nodeId] = {
+          ...currentNode,
+          name,
+          type,
+          parentId,
+          url: url ?? currentNode.url,
+          line: line ?? currentNode.line,
+        }
+      }
+
+      if (previousParentId && previousParentId !== parentId && state[previousParentId])
+        state[previousParentId].children = state[previousParentId].children.filter(childId => childId !== nodeId)
 
       if (parentId) {
         if (!state[parentId])
@@ -274,8 +529,7 @@ export function createTestRunner(): TestRunner {
       }
     }))
 
-    if (addAsRoot)
-      setRoots(prev => (prev.includes(nodeId) ? prev : [...prev, nodeId]))
+    recomputeRoots()
   }
 
   function findExistingNodeId(name: string, type: string, url?: string, parentStableId?: string): string | undefined {
@@ -354,44 +608,33 @@ export function createTestRunner(): TestRunner {
     const hasFilter = Boolean(options?.files?.length || options?.testNamePattern)
     const resetState = options?.resetState ?? !hasFilter
     const targetIds = options?.targetIds ?? []
+    const requestId = ++nextRequestId
 
+    pendingRequestId = requestId
+    activeRunId = null
+    currentRunResetState = resetState
     activeTestId = null
     setConsoleEntries([])
     setPhase('running')
     setRunDuration(0)
     runStartedAt = performance.now()
+    setCoverage(null)
 
     inspectorIdMap.clear()
-    isFilteredRun = !resetState
-
-    targetedTestIds.clear()
+    currentRunFoundIds.clear()
+    currentRunTargetIds.clear()
     for (const id of targetIds)
-      targetedTestIds.add(id)
+      currentRunTargetIds.add(id)
 
-    if (resetState) {
-      setTests(produce((state) => {
-        for (const id in state) {
-          if (state[id]) {
-            state[id].status = 'idle'
-            state[id].duration = undefined
-            state[id].error = undefined
-          }
-        }
-      }))
-    }
-    else if (targetIds.length) {
-      setTests(produce((state) => {
-        for (const id of targetIds) {
-          if (state[id]) {
-            state[id].status = 'idle'
-            state[id].duration = undefined
-            state[id].error = undefined
-          }
-        }
-      }))
-    }
+    resetNodesForRun({
+      resetAll: resetState,
+      targetIds,
+    })
 
-    const payload: any = { type: 'run' }
+    const payload: any = {
+      type: 'run',
+      requestId,
+    }
     if (options?.files?.length)
       payload.files = options.files
     if (options?.testNamePattern)
@@ -432,16 +675,23 @@ export function createTestRunner(): TestRunner {
       : payload?.type ?? 'log'
 
     const frame = payload?.stackTrace?.callFrames?.[0]
+    const sourceUrl = normalizeFilePath(frame?.url)
+    const sourceLine = frame?.lineNumber != null ? frame.lineNumber + 1 : undefined
+    const sourceColumn = frame?.columnNumber != null ? frame.columnNumber + 1 : undefined
     const source = frame
-      ? `${frame.url ?? 'unknown'}:${(frame.lineNumber ?? 0) + 1}:${(frame.columnNumber ?? 0) + 1}`
+      ? `${sourceUrl ?? 'unknown'}:${sourceLine ?? 0}:${sourceColumn ?? 0}`
       : undefined
+
+    const attributedTestId = resolveTestIdFromSource(sourceUrl, sourceLine)
+      ?? activeTestId
+      ?? undefined
 
     const entry: ConsoleEntry = {
       id: ++consoleId,
       level: payload?.type ?? 'log',
       message,
       timestamp: payload?.timestamp ?? Date.now(),
-      testId: activeTestId ?? undefined,
+      testId: attributedTestId,
       source,
     }
 
@@ -457,6 +707,9 @@ export function createTestRunner(): TestRunner {
     phase,
     runDuration,
     summary,
+    coverage,
+    coverageEnabled,
+    coverageDir,
     selectedTest,
     setSelectedId,
     runTests,

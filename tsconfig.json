@@ -13,7 +13,7 @@
       "~/components/*": ["./src/client/components/*"],
       "~/primitives": ["./src/client/primitives"],
       "~/primitives/*": ["./src/client/primitives/*"],
-      "~/utils/*": ["./src/client/utils/*"],
+      "~/utils/*": ["./src/client/utils/*"]
     },
     "allowImportingTsExtensions": true,
     "allowJs": true,

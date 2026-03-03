@@ -32,7 +32,7 @@ const TestDetails: Component<TestDetailsProps> = (props) => {
   const fileLocation = createMemo(() => {
     if (!props.test.url)
       return null
-    const line = props.test.line !== undefined ? `:${props.test.line + 1}` : ''
+    const line = props.test.line !== undefined ? `:${props.test.line}` : ''
     return `${props.test.url}${line}`
   })
 

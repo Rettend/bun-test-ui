@@ -6,6 +6,7 @@ interface BunTestConfig {
   root?: string
   preload?: string[]
   coverage?: boolean
+  coverageDir?: string
   timeout?: number
 }
 
@@ -37,6 +38,8 @@ export interface TestUIConfig {
   cwd?: string
   watch?: boolean
   preload?: string[]
+  coverage?: boolean
+  coverageDir?: string
 }
 
 export function getTestConfig(options: TestUIConfig = {}): Required<TestUIConfig> {
@@ -51,5 +54,7 @@ export function getTestConfig(options: TestUIConfig = {}): Required<TestUIConfig
     cwd,
     watch: options.watch ?? true,
     preload: options.preload ?? bunfig.test?.preload ?? [],
+    coverage: options.coverage ?? bunfig.test?.coverage ?? true,
+    coverageDir: options.coverageDir ?? bunfig.test?.coverageDir ?? 'coverage',
   }
 }

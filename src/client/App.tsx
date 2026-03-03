@@ -44,7 +44,12 @@ const App: Component = () => {
               when={runner.selectedTest()}
               fallback={(
                 <Show when={activeTab() === 'coverage'} fallback={<Dashboard summary={runner.summary()} phase={runner.phase()} />}>
-                  <Coverage />
+                  <Coverage
+                    report={runner.coverage()}
+                    phase={runner.phase()}
+                    enabled={runner.coverageEnabled()}
+                    dir={runner.coverageDir()}
+                  />
                 </Show>
               )}
             >
