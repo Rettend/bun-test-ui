@@ -1,4 +1,4 @@
-import type { Component } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
 import type { TestStatus } from '~/components/types'
 import { getStatusDotClass } from '~/components/utils'
 

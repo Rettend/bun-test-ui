@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
 import type { ConsoleEntry, TestNode } from '~/components/types'
-import { createMemo, For, Show } from 'solid-js/dist/solid.js'
+import { createMemo, For, Show } from 'solid-js'
 import { StatusIcon } from '~/components'
 import { formatDuration, getAggregateStatus } from '~/components/utils'
 import { ansiToHtml } from '~/utils/ansi'

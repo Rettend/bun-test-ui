@@ -53,7 +53,7 @@
     "lint": "eslint . --fix",
     "check": "tsgo --noEmit -p tsconfig.json",
     "update": "taze latest -wr",
-    "release": "bumpp && bun run build && bun publish"
+    "release": "npm login && bumpp && bun run build && bun publish"
   },
   "dependencies": {
     "@rttnd/bun-inspector-protocol": "^0.0.2",

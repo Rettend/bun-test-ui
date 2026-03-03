@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
 import type { TestNode, TestSummary } from '~/components/types'
-import { For, Show } from 'solid-js/dist/solid.js'
+import { For, Show } from 'solid-js'
 import TestTreeItem from './TestTreeItem'
 
 export interface TestExplorerProps {

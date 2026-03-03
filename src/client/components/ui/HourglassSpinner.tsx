@@ -1,5 +1,5 @@
-import type { Component } from 'solid-js/dist/solid.js'
-import { createSignal, onCleanup } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
+import { createSignal, onCleanup } from 'solid-js'
 
 export interface HourglassSpinnerProps {
   class?: string
@@ -22,6 +22,7 @@ const statesFlipped = [
 const HourglassSpinner: Component<HourglassSpinnerProps> = (props) => {
   const [frame, setFrame] = createSignal(0)
   const [flipCount, setFlipCount] = createSignal(0)
+  let spinnerRef: HTMLDivElement | undefined
 
   const currentIcon = () => {
     const isFlipped = flipCount() % 2 === 1
@@ -31,6 +32,14 @@ const HourglassSpinner: Component<HourglassSpinnerProps> = (props) => {
 
   const rotation = () => flipCount() * 180
 
+  const syncSpinnerEl = () => {
+    if (!spinnerRef)
+      return
+
+    spinnerRef.className = `${currentIcon()}  ${props.class ?? ''}`
+    spinnerRef.style.transform = `rotate(${rotation()}deg)`
+  }
+
   const interval = setInterval(() => {
     setFrame((prev) => {
       const next = (prev + 1) % statesNormal.length
@@ -39,12 +48,14 @@ const HourglassSpinner: Component<HourglassSpinnerProps> = (props) => {
 
       return next
     })
+    syncSpinnerEl()
   }, 300)
 
   onCleanup(() => clearInterval(interval))
 
   return (
     <div
+      ref={el => (spinnerRef = el)}
       class={`${currentIcon()}  ${props.class ?? ''}`}
       style={{
         transform: `rotate(${rotation()}deg)`,

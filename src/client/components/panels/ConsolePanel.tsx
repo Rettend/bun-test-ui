@@ -1,6 +1,6 @@
-import type { Component } from 'solid-js/dist/solid.js'
+import type { Component } from 'solid-js'
 import type { ConsoleEntry } from '~/components/types'
-import { For, Show } from 'solid-js/dist/solid.js'
+import { For, Show } from 'solid-js'
 import ConsoleEntryItem from './ConsoleEntryItem'
 
 export interface ConsolePanelProps {

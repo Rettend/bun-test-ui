@@ -70,7 +70,7 @@ describe('TestDetails', () => {
   test('renders suite children and child errors', () => {
     let navigatedTo: string | null = null
 
-    const { unmount } = render(() => (
+    const { container, unmount } = render(() => (
       <TestDetails
         test={mockTests.root!}
         tests={mockTests}
@@ -118,7 +118,7 @@ describe('TestDetails', () => {
   })
 
   test('renders standalone test error', () => {
-    const { unmount } = render(() => (
+    const { container, unmount } = render(() => (
       <TestDetails
         test={mockTests['child-error']!}
         tests={mockTests}
@@ -135,7 +135,7 @@ describe('TestDetails', () => {
 
   test('renders correct status colors', () => {
     const customTest: TestNode = { id: 'x', name: 'X', type: 'test', status: 'skipped', children: [] }
-    const { unmount } = render(() => (
+    const { container, unmount } = render(() => (
       <TestDetails test={customTest} tests={{ x: customTest }} onNavigate={() => {}} />
     ))
 

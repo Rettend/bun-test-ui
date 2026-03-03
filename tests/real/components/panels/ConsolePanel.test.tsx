@@ -6,7 +6,7 @@ import { render } from '../../../setup/render'
 
 describe('ConsolePanel', () => {
   test('renders nothing when no entries exist', () => {
-    const { unmount } = render(() => <ConsolePanel entries={[]} />)
+    const { container, unmount } = render(() => <ConsolePanel entries={[]} />)
 
     expect(container.innerHTML).toBe('')
 
