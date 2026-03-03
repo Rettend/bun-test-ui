@@ -2,7 +2,7 @@
 
 A visual test runner UI for Bun, similar to [Vitest UI](https://vitest.dev/guide/ui.html).
 
-![bun-test-ui](https://img.shields.io/npm/v/bun-test-ui)
+[![bun-test-ui](https://img.shields.io/npm/v/bun-test-ui)](https://npmx.dev/package/bun-test-ui)
 
 ![bun test ui ui](./docs/images/ui.png)
 

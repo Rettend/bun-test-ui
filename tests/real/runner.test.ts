@@ -1,7 +1,7 @@
-import type { TestRunner } from '../../../src/client/runner'
+import type { TestRunner } from '../../src/client/runner'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { createRoot } from 'solid-js'
-import { createTestRunner } from '../../../src/client/runner'
+import { createTestRunner } from '../../src/client/runner'
 
 class MockWebSocket {
   static CONNECTING = 0

@@ -7,6 +7,6 @@ plugins = [
 [test]
 root = "./tests/real"
 coverage = true
-preload = [ "./tests/setup/happy-dom.ts" ]
+preload = [ "./tests/setup/solid-dom.ts", "./tests/setup/happy-dom.ts" ]
 coverageSkipTestFiles = true
 coveragePathIgnorePatterns = [ "tests/**" ]
